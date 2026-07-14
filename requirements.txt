@@ -1,0 +1,81 @@
+# =========================
+# BACKEND API
+# =========================
+fastapi
+uvicorn[standard]
+python-multipart
+aiofiles
+httpx
+
+# =========================
+# CONFIGURATION
+# =========================
+pydantic
+pydantic-settings
+python-dotenv
+
+# =========================
+# DATABASE
+# =========================
+sqlalchemy
+asyncpg
+psycopg[binary]
+alembic
+
+# =========================
+# AUTHENTICATION & SECURITY
+# =========================
+python-jose[cryptography]
+passlib[bcrypt]
+bcrypt
+
+# =========================
+# DOCUMENT PROCESSING
+# =========================
+pypdf
+python-docx
+openpyxl
+pandas
+pillow
+
+# =========================
+# OCR
+# =========================
+pytesseract
+
+# =========================
+# EMBEDDINGS
+# =========================
+sentence-transformers
+
+
+# =========================
+# VECTOR DATABASE
+# =========================
+chromadb
+
+# =========================
+# KNOWLEDGE GRAPH
+# =========================
+networkx
+
+# =========================
+# KEYWORD / TEXT SEARCH
+# =========================
+rank-bm25
+
+# =========================
+# LLM - GEMINI
+# =========================
+google-genai
+
+# =========================
+# FILE / DATA UTILITIES
+# =========================
+numpy
+
+# =========================
+# TESTING
+# =========================
+pytest
+pytest-asyncio

@@ -1,0 +1,15 @@
+fastapi
+uvicorn
+pydantic
+sqlalchemy
+psycopg2-binary
+chromadb
+networkx
+pytesseract
+pdfplumber
+python-multipart
+python-jose[cryptography]
+passlib[bcrypt]
+python-dotenv
+groq
+sentence-transformers

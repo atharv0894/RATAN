@@ -2,83 +2,67 @@
 # RATAN - Git Ignore
 # ==========================================
 
-
 # Python
 __pycache__/
 **/__pycache__/
 *.py[cod]
 *$py.class
 
-
 # Virtual Environments
 .venv/
 venv/
 env/
-
 
 # Environment Variables / Secrets
 .env
 .env.*
 !.env.example
 
-
 # Vector Database - Local Chroma
 chroma_db/
 **/chroma_db/
-
 
 # Uploaded / Test Documents
 test_data/
 **/test_data/
 
-
 # Local Storage
 storage/
 **/storage/
 
-
 # Logs
 *.log
 logs/
-
 
 # Test / Debug Outputs
 manual_test_output.txt
 *_test_output.txt
 debug_output.txt
 
-
 # Pytest
 .pytest_cache/
-
 
 # Coverage
 .coverage
 htmlcov/
-
 
 # Build
 build/
 dist/
 *.egg-info/
 
-
 # Jupyter
 .ipynb_checkpoints/
-
 
 # VS Code
 .vscode/
 
-
 # JetBrains
 .idea/
-
 
 # macOS
 .DS_Store
 **/.DS_Store
-
 
 # Temporary Files
 *.tmp
@@ -86,30 +70,17 @@ dist/
 *.swp
 *.swo
 
-
 # Python Type Checkers / Linters
 .mypy_cache/
 .ruff_cache/
 
-
-# Model / Hugging Face Cache
+# Hugging Face / Model Cache
 .cache/
 huggingface/
 models/
-
 
 # Local Database Files
 *.sqlite
 *.sqlite3
 *.sqlite3-shm
 *.sqlite3-wal
-
-
-
-.env
-__pycache__/
-*.pyc
-.pytest_cache/
-.DS_Store
-chroma_db/
-manual_test_output.txt

@@ -8,11 +8,13 @@ class Indexer:
         self.vector_store = vector_store or VectorStore()
         self.collection = self.vector_store.get_collection()
         
-    def index_chunk(self, text: str, metadata: dict = None):
-        chunk_id = str(uuid.uuid4())
+    def index_chunk(self, text: str, metadata: dict = None, chunk_id: str = None):
+        if not chunk_id:
+            chunk_id = str(uuid.uuid4())
         embedding = self.embedding_service.generate_embedding(text)
         
-        self.collection.add(
+        # Use upsert to overwrite duplicates safely
+        self.collection.upsert(
             ids=[chunk_id],
             embeddings=[embedding],
             documents=[text],
@@ -20,17 +22,20 @@ class Indexer:
         )
         return chunk_id
         
-    def index_chunks(self, chunks: list[str], metadatas: list[dict] = None):
+    def index_chunks(self, chunks: list[str], metadatas: list[dict] = None, chunk_ids: list[str] = None):
         if not chunks:
             return []
             
-        chunk_ids = [str(uuid.uuid4()) for _ in chunks]
-        embeddings = [self.embedding_service.generate_embedding(text) for text in chunks]
+        if not chunk_ids:
+            chunk_ids = [str(uuid.uuid4()) for _ in chunks]
+            
+        # Use batched generation for massive speedup
+        embeddings = self.embedding_service.generate_embeddings(chunks)
         
         if metadatas is None:
             metadatas = [{} for _ in chunks]
             
-        self.collection.add(
+        self.collection.upsert(
             ids=chunk_ids,
             embeddings=embeddings,
             documents=chunks,

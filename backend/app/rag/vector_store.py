@@ -12,3 +12,10 @@ class VectorStore:
         
     def get_collection(self):
         return self.collection
+
+    def reset_collection(self):
+        try:
+            self.client.delete_collection(name=self.collection_name)
+        except Exception:
+            pass
+        self.collection = self.client.create_collection(name=self.collection_name)

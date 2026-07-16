@@ -50,3 +50,4 @@ class VectorStore:
     def __new__(cls, collection_name="ratan_documents", **kwargs):
         # Acts as a factory
         return get_vector_store(collection_name=collection_name, **kwargs)
+

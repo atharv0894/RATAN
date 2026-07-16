@@ -1,3 +1,4 @@
+# pyrefly: ignore [missing-import]
 import numpy as np
 from app.rag.embedding_service import EmbeddingService
 from app.rag.vector_store import VectorStore

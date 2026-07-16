@@ -1,7 +1,9 @@
 import os
 import uuid
+# pyrefly: ignore [missing-import]
 from qdrant_client import QdrantClient
-from qdrant_client.models import Distance, VectorParams, PointStruct
+# pyrefly: ignore [missing-import]
+from qdrant_client.models import Distance, VectorParams, PointStruct, Filter, FieldCondition, MatchValue
 
 class QdrantStore:
     def __init__(self, collection_name="ratan_documents"):
@@ -83,3 +85,16 @@ class QdrantStore:
             'distances': [distances],
             'embeddings': [embeddings]
         }
+        
+    def delete_by_source(self, source: str):
+        self.client.delete(
+            collection_name=self.collection_name,
+            points_selector=Filter(
+                must=[
+                    FieldCondition(
+                        key="source",
+                        match=MatchValue(value=source)
+                    )
+                ]
+            )
+        )

@@ -42,3 +42,6 @@ class ChromaStore:
             n_results=n_results,
             include=include
         )
+        
+    def delete_by_source(self, source: str):
+        self.collection.delete(where={"source": source})

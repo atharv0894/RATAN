@@ -10,3 +10,6 @@ langchain-google-genai
 langchain-groq
 qdrant-client
 qdrant-client
+fastapi
+uvicorn
+python-multipart

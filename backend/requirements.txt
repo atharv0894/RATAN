@@ -8,3 +8,5 @@ python-dotenv
 sentence-transformers
 langchain-google-genai
 langchain-groq
+qdrant-client
+qdrant-client

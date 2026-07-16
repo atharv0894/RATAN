@@ -6,7 +6,6 @@ class Indexer:
     def __init__(self, embedding_service=None, vector_store=None):
         self.embedding_service = embedding_service or EmbeddingService()
         self.vector_store = vector_store or VectorStore()
-        self.collection = self.vector_store.get_collection()
         
     def index_chunk(self, text: str, metadata: dict = None, chunk_id: str = None):
         if not chunk_id:
@@ -14,7 +13,7 @@ class Indexer:
         embedding = self.embedding_service.generate_embedding(text)
         
         # Use upsert to overwrite duplicates safely
-        self.collection.upsert(
+        self.vector_store.upsert(
             ids=[chunk_id],
             embeddings=[embedding],
             documents=[text],
@@ -35,7 +34,7 @@ class Indexer:
         if metadatas is None:
             metadatas = [{} for _ in chunks]
             
-        self.collection.upsert(
+        self.vector_store.upsert(
             ids=chunk_ids,
             embeddings=embeddings,
             documents=chunks,

@@ -17,9 +17,10 @@ def run_test():
     retrieval_service = RetrievalService(embedding_service, vector_store)
     rag_service = RAGService(retrieval_service)
 
-    q1 = "An operator begins a manufacturing procedure after confirming that the correct SOP is available, personnel are authorized, equipment is released, and the work environment is safe. During execution, a required quality check produces a result outside the measurable acceptance criteria, but no immediate safety hazard is identified. According to the SOP, what must happen next, under what conditions may work resume, which documented responsibilities are relevant, and what does the SOP not specify about the final disposition of the affected product or output?"
+    q1 = "What are the key phases of the systems development life cycle (SDLC) mentioned in the text?"
+    q2 = "An operator begins a manufacturing procedure after confirming that the correct SOP is available, personnel are authorized, equipment is released, and the work environment is safe. During execution, a required quality check produces a result outside the measurable acceptance criteria, but no immediate safety hazard is identified. According to the SOP, what must happen next, under what conditions may work resume, which documented responsibilities are relevant, and what does the SOP not specify about the final disposition of the affected product or output?"
     
-    print("=== Manual Validation ===")
+    print("=== Manual Validation: Question 1 (SDLC) ===")
     res1 = rag_service.generate_answer(q1)
     
     print(f"Provider: {res1.get('provider', 'Unknown')}")
@@ -27,6 +28,17 @@ def run_test():
     print(res1['answer'])
     print("\nCitations:")
     for c in res1['citations']:
+        meta = c['metadata']
+        print(f"[{meta.get('source')} Page {meta.get('page_no')} - {meta.get('section')}] (Chunk ID: {c.get('chunk_id')})")
+        
+    print("\n=== Manual Validation: Question 2 (SOP) ===")
+    res2 = rag_service.generate_answer(q2)
+    
+    print(f"Provider: {res2.get('provider', 'Unknown')}")
+    print("\nAnswer:")
+    print(res2['answer'])
+    print("\nCitations:")
+    for c in res2['citations']:
         meta = c['metadata']
         print(f"[{meta.get('source')} Page {meta.get('page_no')} - {meta.get('section')}] (Chunk ID: {c.get('chunk_id')})")
 

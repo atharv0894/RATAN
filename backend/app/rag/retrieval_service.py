@@ -6,7 +6,6 @@ class RetrievalService:
     def __init__(self, embedding_service=None, vector_store=None):
         self.embedding_service = embedding_service or EmbeddingService()
         self.vector_store = vector_store or VectorStore()
-        self.collection = self.vector_store.get_collection()
 
     def _cosine_similarity(self, a, b):
         return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
@@ -48,7 +47,7 @@ class RetrievalService:
         query_embedding = self.embedding_service.generate_embeddings([query])[0]
         
         # Include embeddings in the results to compute MMR
-        results = self.collection.query(
+        results = self.vector_store.query(
             query_embeddings=[query_embedding],
             n_results=fetch_k,
             include=['documents', 'metadatas', 'distances', 'embeddings']

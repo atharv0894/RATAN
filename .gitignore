@@ -1,85 +1,118 @@
 # ==========================================
-# RATAN - Git Ignore
+# RATAN - .gitignore
 # ==========================================
 
+# -------------------------
 # Python
+# -------------------------
 __pycache__/
 **/__pycache__/
 *.py[cod]
 *$py.class
 
+# -------------------------
 # Virtual Environments
+# -------------------------
 .venv/
 venv/
 env/
 
-# Environment Variables / Secrets
+# -------------------------
+# Environment Variables
+# -------------------------
 .env
 .env.*
 !.env.example
 
-# Vector Database - Local Chroma
+# -------------------------
+# Local Vector Databases
+# -------------------------
 chroma_db/
 **/chroma_db/
 
-# Uploaded / Test Documents
+qdrant_storage/
+**/qdrant_storage/
+
+# -------------------------
+# Uploaded/Test Documents
+# -------------------------
 test_data/
 **/test_data/
 
-# Local Storage
 storage/
 **/storage/
 
+uploads/
+**/uploads/
+
+# -------------------------
 # Logs
+# -------------------------
 *.log
 logs/
 
-# Test / Debug Outputs
+# -------------------------
+# Test Outputs
+# -------------------------
 manual_test_output.txt
 *_test_output.txt
 debug_output.txt
 
-# Pytest
+# -------------------------
+# Testing
+# -------------------------
 .pytest_cache/
-
-# Coverage
 .coverage
 htmlcov/
 
+# -------------------------
 # Build
+# -------------------------
 build/
 dist/
 *.egg-info/
 
+# -------------------------
 # Jupyter
+# -------------------------
 .ipynb_checkpoints/
 
-# VS Code
+# -------------------------
+# IDE
+# -------------------------
 .vscode/
-
-# JetBrains
 .idea/
 
+# -------------------------
 # macOS
+# -------------------------
 .DS_Store
 **/.DS_Store
 
+# -------------------------
 # Temporary Files
+# -------------------------
 *.tmp
 *.temp
 *.swp
 *.swo
 
-# Python Type Checkers / Linters
+# -------------------------
+# Type Checkers / Linters
+# -------------------------
 .mypy_cache/
 .ruff_cache/
 
-# Hugging Face / Model Cache
+# -------------------------
+# Hugging Face Cache
+# -------------------------
 .cache/
 huggingface/
 models/
 
+# -------------------------
 # Local Database Files
+# -------------------------
 *.sqlite
 *.sqlite3
 *.sqlite3-shm

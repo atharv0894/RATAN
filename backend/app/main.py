@@ -2,7 +2,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
-from app.api import health, documents, chat, stats, entities
+from app.api import health, documents, chat, stats, entities, cleanup
+from fastapi.responses import JSONResponse
+import logging
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
 # Load environment variables
 load_dotenv()
@@ -22,12 +26,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.exception_handler(Exception)
+async def global_exception_handler(request, exc: Exception):
+    logging.error(f"Unhandled Exception: {exc}", exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={"status": "error", "message": "An unexpected error occurred on the server.", "detail": str(exc)}
+    )
+
 # Include all API routers
 app.include_router(health.router, prefix="", tags=["health"])
 app.include_router(documents.router, prefix="/documents", tags=["documents"])
 app.include_router(chat.router, prefix="/chat", tags=["chat"])
 app.include_router(stats.router, prefix="/stats", tags=["stats"])
 app.include_router(entities.router, prefix="/entities", tags=["entities"])
+app.include_router(cleanup.router, prefix="/cleanup", tags=["cleanup"])
 
 @app.get("/")
 def read_root():

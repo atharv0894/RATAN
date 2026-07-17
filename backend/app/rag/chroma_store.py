@@ -1,6 +1,5 @@
 # pyrefly: ignore [missing-import]
 import chromadb
-import os
 
 class ChromaStore:
     def __init__(self, persist_directory="./chroma_db", collection_name="ratan_documents"):

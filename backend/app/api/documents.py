@@ -1,10 +1,11 @@
 # pyrefly: ignore [missing-import]
-from fastapi import APIRouter, UploadFile, File, HTTPException, status
+from fastapi import APIRouter, UploadFile, File, HTTPException
 from typing import List
-import os
 import uuid
 from app.services.dependencies import get_document_service
 from app.storage.storage_service import StorageService
+from app.rag.indexer import QdrantUploadError
+from app.exceptions import DuplicateDocumentError
 
 router = APIRouter()
 storage_service = StorageService()
@@ -44,28 +45,42 @@ async def upload_documents(file: List[UploadFile] = File(...)):
         
         try:
             doc_id = doc_service.process_and_index(f.filename, save_path, document_id=document_id)
-            results.append({"filename": f.filename, "document_id": doc_id, "status": "Indexed"})
-        except ValueError as e:
-            if str(e) == "DUPLICATE_CHECKSUM":
-                storage_service.delete(document_id)
-                results.append({"filename": f.filename, "error": "Duplicate document", "status": "Failed", "code": 409})
-            else:
-                storage_service.delete(document_id)
-                results.append({"filename": f.filename, "error": str(e), "status": "Failed", "code": 500})
+            results.append({
+                "status": "uploaded",
+                "document_id": doc_id,
+                "filename": f.filename,
+                "duplicate": False
+            })
+        except DuplicateDocumentError as e:
+            storage_service.delete(document_id)
+            results.append({
+                "status": "already_exists",
+                "document_id": e.document_id,
+                "filename": f.filename,
+                "indexed": True,
+                "duplicate": True,
+                "message": "Document already indexed. Using existing document."
+            })
+        except QdrantUploadError as e:
+            storage_service.delete(document_id)
+            results.append(e.error_details)
         except Exception as e:
+            import traceback
+            traceback.print_exc()
             storage_service.delete(document_id)
             results.append({"filename": f.filename, "error": str(e), "status": "Failed", "code": 500})
             
-    # Check if there were any 409s and handle how to return? The prompt says "return HTTP 409 if identical checksum". 
-    # If it's a batch, we can return 409 immediately or mix. If it's single file it's easy. I'll just raise 409 if any duplicate is found for simplicity of prompt constraints, or just return it in results. Wait, "If identical checksum already exists, return HTTP 409."
-    # Let's raise HTTPException 409 if the first file fails, or if any fails.
+    # Check if there were any 500s
     for r in results:
-        if r.get("code") == 409:
-            raise HTTPException(status_code=409, detail="Duplicate document uploaded")
+        if r.get("status") == "failed" and "stage" in r:
+            raise HTTPException(status_code=500, detail=r)
         if r.get("code") == 500:
             raise HTTPException(status_code=500, detail="Unexpected error during processing")
         
-    return {"message": "Files successfully uploaded and indexed", "results": results}
+    # Return single object if 1 file, else list (matches the requested exact response format)
+    if len(results) == 1:
+        return results[0]
+    return results
 
 @router.get("")
 def list_documents():

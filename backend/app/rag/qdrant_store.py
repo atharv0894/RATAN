@@ -9,8 +9,9 @@ class QdrantStore:
     def __init__(self, collection_name="ratan_documents"):
         url = os.environ.get("QDRANT_URL")
         api_key = os.environ.get("QDRANT_API_KEY")
+        timeout = float(os.environ.get("QDRANT_TIMEOUT", "30.0"))
         self.collection_name = collection_name
-        self.client = QdrantClient(url=url, api_key=api_key)
+        self.client = QdrantClient(url=url, api_key=api_key, timeout=timeout)
         
         self._ensure_collection()
 

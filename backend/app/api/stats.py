@@ -2,7 +2,6 @@
 from fastapi import APIRouter
 from app.models.responses import StatsResponse
 from app.services.dependencies import get_document_service
-import os
 import sys
 import io
 import time

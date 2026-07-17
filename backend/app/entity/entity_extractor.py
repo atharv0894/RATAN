@@ -1,6 +1,6 @@
 import time
 import uuid
-from typing import List, Dict, Any
+from typing import List, Dict
 from app.entity.entity_patterns import COMPILED_PATTERNS, COMPILED_CLASSIFICATIONS
 from app.database.sqlite import get_db_connection
 

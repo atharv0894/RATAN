@@ -10,11 +10,37 @@ extractor = EntityExtractor()
 
 @router.post("", response_model=ChatResponse)
 def chat(request: ChatRequest):
-    # Entity Extraction from query
-    query_entities = extractor.extract_from_text(request.question)
+    if not request.question or not request.question.strip():
+        return ChatResponse(answer="Please provide a valid question.", citations=[], entities=[])
+        
     where_clause = None
     
-    if query_entities:
+    # Phase 6: Mode 2 Document Search
+    if request.filename:
+        where_clause = {"source": request.filename}
+    elif request.document_id:
+        # Resolve document_id to filename
+        from app.database.sqlite import get_db_connection
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT filename FROM documents WHERE document_id = ?", (request.document_id,))
+        row = cursor.fetchone()
+        conn.close()
+        if row:
+            where_clause = {"source": row[0]}
+        else:
+            return ChatResponse(answer="Specified document not found.", citations=[], entities=[])
+
+    # Entity Extraction from query
+    query_entities = []
+    try:
+        query_entities = extractor.extract_from_text(request.question)
+    except Exception as e:
+        import logging
+        logging.warning(f"Entity extraction failed for query: {str(e)}")
+        
+    # Phase 6: Mode 1 Global Search with Entity Filtering (only if Mode 2 is not active)
+    if not where_clause and query_entities:
         # Get matching documents for these entities
         from app.database.sqlite import get_db_connection
         conn = get_db_connection()

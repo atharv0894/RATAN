@@ -10,6 +10,8 @@ from app.rag.document_loaders import DocumentLoader
 from app.rag.chunker import Chunker
 from app.storage.storage_service import StorageService
 from app.entity.entity_extractor import EntityExtractor
+from app.exceptions import DuplicateDocumentError
+import logging
 
 class DocumentService:
     def __init__(self, embedding_service=None, vector_store=None):
@@ -26,21 +28,23 @@ class DocumentService:
                 sha256_hash.update(byte_block)
         return sha256_hash.hexdigest()
 
-    def check_duplicate_checksum(self, checksum: str) -> bool:
+    def get_document_by_checksum(self, checksum: str) -> str:
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute("SELECT document_id FROM documents WHERE checksum_sha256 = ?", (checksum,))
         row = cursor.fetchone()
         conn.close()
-        return row is not None
+        return row["document_id"] if row else None
 
     def process_and_index(self, filename: str, file_path: str, document_id: str = None, is_reindex: bool = False):
-        print(f"[Upload lifecycle] Upload completed for {filename}")
+        logging.info(f"[Upload lifecycle] Upload completed for {filename}")
         
         # Checksum validation
         checksum = self._compute_checksum(file_path)
-        if not is_reindex and self.check_duplicate_checksum(checksum):
-            raise ValueError("DUPLICATE_CHECKSUM")
+        if not is_reindex:
+            existing_id = self.get_document_by_checksum(checksum)
+            if existing_id:
+                raise DuplicateDocumentError(existing_id)
             
         start_time = time.time()
         
@@ -65,7 +69,7 @@ class DocumentService:
         conn.commit()
         
         try:
-            print(f"[Indexing lifecycle] Indexing started for {document_id}")
+            logging.info(f"[Indexing lifecycle] Indexing started for {document_id}")
             # Load and chunk
             loader = DocumentLoader()
             chunker = Chunker(max_chars=1500, overlap_chars=200)
@@ -90,25 +94,32 @@ class DocumentService:
                     chunk_ids.append(info['chunk_id'])
                     
                     # Entity Extraction per chunk
-                    extracted_entities = self.entity_extractor.extract_from_text(info['text'])
-                    if extracted_entities:
-                        self.entity_extractor.save_entities(
-                            document_id=document_id,
-                            chunk_id=info['chunk_id'],
-                            page_number=base_meta['page_no'],
-                            section="Content",
-                            entities=extracted_entities
-                        )
+                    try:
+                        extracted_entities = self.entity_extractor.extract_from_text(info['text'])
+                        if extracted_entities:
+                            self.entity_extractor.save_entities(
+                                document_id=document_id,
+                                chunk_id=info['chunk_id'],
+                                page_number=base_meta['page_no'],
+                                section="Content",
+                                entities=extracted_entities
+                            )
+                    except Exception as e:
+                        logging.warning(f"Entity extraction failed for chunk {info['chunk_id']}: {str(e)}")
             
             # Document Classification
-            doc_class = self.entity_extractor.classify_document("\n".join(full_text))
+            doc_class = "Unknown"
+            try:
+                doc_class = self.entity_extractor.classify_document("\n".join(full_text))
+            except Exception as e:
+                logging.warning(f"Document classification failed: {str(e)}")
                     
             # Index
             if chunks:
-                self.indexer.index_chunks(chunks, metadatas=metadatas, chunk_ids=chunk_ids)
+                self.indexer.index_chunks(chunks, metadatas=metadatas, chunk_ids=chunk_ids, document_id=document_id, filename=filename)
                 
             processing_time = time.time() - start_time
-            print(f"[Indexing lifecycle] Indexing completed for {document_id}")
+            logging.info(f"[Indexing lifecycle] Indexing completed for {document_id}")
             
             # Metadata update
             meta = self.storage_service.get_metadata(document_id)
@@ -140,7 +151,7 @@ class DocumentService:
         except Exception as e:
             cursor.execute("UPDATE documents SET status = 'Failed', index_status = 'Error' WHERE document_id = ?", (document_id,))
             conn.commit()
-            print(f"[Indexing lifecycle] Indexing failed for {document_id}: {str(e)}")
+            logging.error(f"[Indexing lifecycle] Indexing failed for {document_id}: {str(e)}")
             raise e
         finally:
             conn.close()
@@ -170,7 +181,7 @@ class DocumentService:
         if not doc:
             return False
             
-        print(f"[Deletion] Deleting {document_id}")
+        logging.info(f"[Deletion] Deleting {document_id}")
         
         # Delete from DB
         conn = get_db_connection()
@@ -184,15 +195,13 @@ class DocumentService:
             if hasattr(self.vector_store, 'delete_by_source'):
                 self.vector_store.delete_by_source(doc['filename'])
         except Exception as e:
-            print(f"[Deletion] Warning: Vector delete failed - {e}")
-            pass
+            logging.warning(f"[Deletion] Warning: Vector delete failed - {e}")
             
         # Try to delete original file in storage
         try:
             self.storage_service.delete(document_id)
         except Exception as e:
-            print(f"[Deletion] Warning: Storage delete failed - {e}")
-            pass
+            logging.warning(f"[Deletion] Warning: Storage delete failed - {e}")
                     
         return True
         
@@ -201,7 +210,7 @@ class DocumentService:
         if not doc:
             return None
             
-        print(f"[Reindex] Reindexing {document_id}")
+        logging.info(f"[Reindex] Reindexing {document_id}")
         
         # 1. Read existing PDF
         local_path = self.storage_service.get_local_path(document_id)
@@ -213,7 +222,7 @@ class DocumentService:
             if hasattr(self.vector_store, 'delete_by_source'):
                 self.vector_store.delete_by_source(doc['filename'])
         except Exception as e:
-            print(f"[Reindex] Warning: Vector delete failed - {e}")
+            logging.warning(f"[Reindex] Warning: Vector delete failed - {e}")
             
         # 3. Re-ingest
         return self.process_and_index(doc['filename'], local_path, document_id=document_id, is_reindex=True)

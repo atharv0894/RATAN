@@ -1,6 +1,7 @@
 import os
 import json
 import re
+import logging
 
 # pyrefly: ignore [missing-import]
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -23,7 +24,7 @@ class RAGService:
             model="openai/gpt-oss-120b",
             temperature=0,
             api_key=groq_api_key,
-            max_retries=0
+            max_retries=5
         )
         
         # Fallback LLM: Gemini
@@ -69,12 +70,11 @@ Query: {query}"""
         seen_chunks = set()
         
         if debug:
-            print("\n[RETRIEVAL DEBUG]")
-            print(f"Original Query: {query}")
+            logging.info("\n[RETRIEVAL DEBUG]")
+            logging.info(f"Original Query: {query}")
             for i, sq in enumerate(sub_queries):
                 if sq != query:
-                    print(f"Sub-query {i}: {sq}")
-            print()
+                    logging.info(f"Sub-query {i}: {sq}")
             
         for sq in sub_queries:
             chunks = self.retrieval_service.retrieve(sq, top_k=6, fetch_k=20, lambda_mult=0.6, where=where)
@@ -95,14 +95,7 @@ Query: {query}"""
         if debug:
             for rank, chunk in enumerate(final_chunks, 1):
                 meta = chunk['metadata']
-                print(f"Rank {rank}")
-                print(f"Chunk ID: {chunk['chunk_id']}")
-                print(f"Source: {meta.get('source')}")
-                print(f"Page: {meta.get('page_no')}")
-                print(f"Section: {meta.get('section', 'N/A')}")
-                print(f"Score: {chunk['distance']:.4f}")
-                print("Score Type: L2 Distance (ChromaDB)")
-                print(f"Preview: {chunk['text'][:150]}...\n")
+                logging.info(f"Rank {rank} | Chunk ID: {chunk['chunk_id']} | Source: {meta.get('source')} | Page: {meta.get('page_no')} | Score: {chunk['distance']:.4f}")
                 
         prompt = PromptBuilder.build_rag_prompt(query, final_chunks)
         
@@ -114,13 +107,16 @@ Query: {query}"""
             
             # Primary attempt
             generated_by = "Groq / openai/gpt-oss-120b"
+            logging.info("[LLM TRACE] CALL GPT-OSS (Groq)")
             if debug:
-                print(f"Primary LLM: {generated_by}")
+                logging.info(f"Primary LLM: {generated_by}")
                 
             try:
                 response = self.primary_client.invoke(messages)
+                logging.info("[LLM TRACE] GPT SUCCESS")
             except Exception as e:
                 error_str = str(e).lower()
+                logging.warning(f"[LLM TRACE] GPT FAILED with error: {error_str}")
                 is_fallback_condition = any(keyword in error_str for keyword in [
                     "429", "resource_exhausted", "rate limit", "quota", 
                     "unavailable", "503", "502", "500", "too many requests"
@@ -128,10 +124,17 @@ Query: {query}"""
                 
                 if is_fallback_condition:
                     generated_by = "Gemini / gemini-2.5-flash"
+                    logging.warning("[LLM TRACE] Fallback Started")
+                    logging.info("[LLM TRACE] Gemini Called")
                     if debug:
-                        print("Primary provider unavailable or quota limited.")
-                        print(f"Using fallback LLM: {generated_by}")
-                    response = self.fallback_client.invoke(messages)
+                        logging.warning("Primary provider unavailable or quota limited.")
+                        logging.info(f"Using fallback LLM: {generated_by}")
+                    try:
+                        response = self.fallback_client.invoke(messages)
+                        logging.info("[LLM TRACE] Gemini Success")
+                    except Exception as fallback_e:
+                        logging.error(f"[LLM TRACE] Gemini Failed: {fallback_e}")
+                        raise fallback_e
                 else:
                     raise e
             

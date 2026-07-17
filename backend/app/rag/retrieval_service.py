@@ -44,14 +44,15 @@ class RetrievalService:
                 
         return [docs[i] for i in selected]
         
-    def retrieve(self, query: str, top_k: int = 6, fetch_k: int = 20, lambda_mult: float = 0.5):
+    def retrieve(self, query: str, top_k: int = 6, fetch_k: int = 20, lambda_mult: float = 0.5, where: dict = None):
         query_embedding = self.embedding_service.generate_embeddings([query])[0]
         
         # Include embeddings in the results to compute MMR
         results = self.vector_store.query(
             query_embeddings=[query_embedding],
             n_results=fetch_k,
-            include=['documents', 'metadatas', 'distances', 'embeddings']
+            include=['documents', 'metadatas', 'distances', 'embeddings'],
+            where=where
         )
         
         if not results or not results['documents'] or len(results['documents']) == 0 or not results['documents'][0]:

@@ -28,23 +28,41 @@ def init_db():
             checksum_sha256 TEXT,
             mime_type TEXT,
             index_status TEXT,
-            last_indexed REAL
+            last_indexed REAL,
+            document_class TEXT DEFAULT 'Unknown'
+        )
+    ''')
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS entities (
+            entity_id TEXT PRIMARY KEY,
+            document_id TEXT NOT NULL,
+            chunk_id TEXT,
+            entity_type TEXT NOT NULL,
+            entity_value TEXT NOT NULL,
+            page_number INTEGER,
+            section TEXT,
+            created_at REAL NOT NULL,
+            FOREIGN KEY(document_id) REFERENCES documents(document_id) ON DELETE CASCADE
         )
     ''')
     
     # Quick migration for existing tables
-    try:
-        cursor.execute("ALTER TABLE documents ADD COLUMN storage_provider TEXT DEFAULT 'local'")
-        cursor.execute("ALTER TABLE documents ADD COLUMN storage_path TEXT")
-        cursor.execute("ALTER TABLE documents ADD COLUMN file_size INTEGER DEFAULT 0")
-        cursor.execute("ALTER TABLE documents ADD COLUMN page_count INTEGER DEFAULT 0")
-        cursor.execute("ALTER TABLE documents ADD COLUMN checksum_sha256 TEXT")
-        cursor.execute("ALTER TABLE documents ADD COLUMN mime_type TEXT")
-        cursor.execute("ALTER TABLE documents ADD COLUMN index_status TEXT")
-        cursor.execute("ALTER TABLE documents ADD COLUMN last_indexed REAL")
-    except sqlite3.OperationalError:
-        # Columns likely already exist
-        pass
+    for col, default in [
+        ("storage_provider", "'local'"),
+        ("storage_path", "NULL"),
+        ("file_size", "0"),
+        ("page_count", "0"),
+        ("checksum_sha256", "NULL"),
+        ("mime_type", "NULL"),
+        ("index_status", "NULL"),
+        ("last_indexed", "NULL"),
+        ("document_class", "'Unknown'")
+    ]:
+        try:
+            cursor.execute(f"ALTER TABLE documents ADD COLUMN {col} TEXT DEFAULT {default}")
+        except sqlite3.OperationalError:
+            pass
     conn.commit()
     conn.close()
 

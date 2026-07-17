@@ -21,6 +21,15 @@ class QdrantStore:
                 collection_name=self.collection_name,
                 vectors_config=VectorParams(size=1024, distance=Distance.COSINE),
             )
+            # Create index for source to allow filtering
+            try:
+                self.client.create_payload_index(
+                    collection_name=self.collection_name,
+                    field_name="source",
+                    field_schema="keyword",
+                )
+            except Exception:
+                pass
 
     def reset_collection(self):
         try:
@@ -49,13 +58,29 @@ class QdrantStore:
             points=points
         )
         
-    def query(self, query_embeddings: list[list[float]], n_results: int, include: list[str]):
+    def query(self, query_embeddings: list[list[float]], n_results: int, include: list[str], where: dict = None):
         query_vector = query_embeddings[0]
+        
+        # Build filter if where clause is provided
+        query_filter = None
+        if where:
+            must_conditions = []
+            for k, v in where.items():
+                if isinstance(v, dict) and "$in" in v:
+                    # Qdrant supports 'should' with multiple MatchValues
+                    should_conditions = [FieldCondition(key=k, match=MatchValue(value=val)) for val in v["$in"]]
+                    must_conditions.append(Filter(should=should_conditions))
+                else:
+                    must_conditions.append(FieldCondition(key=k, match=MatchValue(value=v)))
+                    
+            if must_conditions:
+                query_filter = Filter(must=must_conditions)
         
         search_result = self.client.query_points(
             collection_name=self.collection_name,
             query=query_vector,
             limit=n_results,
+            query_filter=query_filter,
             with_payload=True,
             with_vectors=True
         ).points

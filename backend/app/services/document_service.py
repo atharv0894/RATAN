@@ -9,6 +9,7 @@ from app.rag.indexer import Indexer
 from app.rag.document_loaders import DocumentLoader
 from app.rag.chunker import Chunker
 from app.storage.storage_service import StorageService
+from app.entity.entity_extractor import EntityExtractor
 
 class DocumentService:
     def __init__(self, embedding_service=None, vector_store=None):
@@ -16,6 +17,7 @@ class DocumentService:
         self.vector_store = vector_store or VectorStore()
         self.indexer = Indexer(self.embedding_service, self.vector_store)
         self.storage_service = StorageService()
+        self.entity_extractor = EntityExtractor()
 
     def _compute_checksum(self, file_path: str) -> str:
         sha256_hash = hashlib.sha256()
@@ -73,14 +75,33 @@ class DocumentService:
             chunks = []
             metadatas = []
             chunk_ids = []
+            
+            # Combine all text for classification
+            full_text = []
+            
             for page in pages:
                 page_text = page['text']
+                full_text.append(page_text)
                 base_meta = {"source": filename, "page_no": page.get('page_no', 1)}
                 page_chunks_info = chunker.chunk_text_with_metadata(page_text, base_meta)
                 for info in page_chunks_info:
                     chunks.append(info['text'])
                     metadatas.append(info['metadata'])
                     chunk_ids.append(info['chunk_id'])
+                    
+                    # Entity Extraction per chunk
+                    extracted_entities = self.entity_extractor.extract_from_text(info['text'])
+                    if extracted_entities:
+                        self.entity_extractor.save_entities(
+                            document_id=document_id,
+                            chunk_id=info['chunk_id'],
+                            page_number=base_meta['page_no'],
+                            section="Content",
+                            entities=extracted_entities
+                        )
+            
+            # Document Classification
+            doc_class = self.entity_extractor.classify_document("\n".join(full_text))
                     
             # Index
             if chunks:
@@ -108,10 +129,11 @@ class DocumentService:
                    checksum_sha256 = ?,
                    mime_type = ?,
                    index_status = 'Success',
-                   last_indexed = ?
+                   last_indexed = ?,
+                   document_class = ?
                    WHERE document_id = ?''',
                 (len(chunks), processing_time, self.storage_service.provider_name, storage_path, 
-                 file_size, page_count, checksum, mime_type, time.time(), document_id)
+                 file_size, page_count, checksum, mime_type, time.time(), doc_class, document_id)
             )
             conn.commit()
             

@@ -36,11 +36,12 @@ class ChromaStore:
             metadatas=metadatas
         )
         
-    def query(self, query_embeddings: list[list[float]], n_results: int, include: list[str]):
+    def query(self, query_embeddings: list[list[float]], n_results: int, include: list[str], where: dict = None):
         return self.collection.query(
             query_embeddings=query_embeddings,
             n_results=n_results,
-            include=include
+            include=include,
+            where=where
         )
         
     def delete_by_source(self, source: str):

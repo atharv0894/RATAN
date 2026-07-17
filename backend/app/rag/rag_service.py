@@ -60,7 +60,7 @@ Query: {query}"""
             # Deterministic fallback
             return [query]
 
-    def generate_answer(self, query: str, debug: bool = False):
+    def generate_answer(self, query: str, debug: bool = False, where: dict = None):
         sub_queries = self._decompose_query(query)
         if query not in sub_queries:
             sub_queries.insert(0, query)
@@ -77,7 +77,7 @@ Query: {query}"""
             print()
             
         for sq in sub_queries:
-            chunks = self.retrieval_service.retrieve(sq, top_k=6, fetch_k=20, lambda_mult=0.6)
+            chunks = self.retrieval_service.retrieve(sq, top_k=6, fetch_k=20, lambda_mult=0.6, where=where)
             for chunk in chunks:
                 chunk_id = chunk.get('chunk_id')
                 if chunk_id not in seen_chunks:

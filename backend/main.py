@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from app.api import health, documents, chat, stats
+from app.api import health, documents, chat, stats, entities
 
 app = FastAPI(title="RATAN API", version="1.0.0")
 
@@ -23,6 +23,7 @@ app.include_router(health.router, prefix="", tags=["health"])
 app.include_router(documents.router, prefix="/documents", tags=["documents"])
 app.include_router(chat.router, prefix="/chat", tags=["chat"])
 app.include_router(stats.router, prefix="/stats", tags=["stats"])
+app.include_router(entities.router, prefix="/entities", tags=["entities"])
 
 if __name__ == "__main__":
     # pyrefly: ignore [missing-import]

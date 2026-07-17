@@ -1,6 +1,6 @@
-# 📁 Rag Directory
+# 📁 App Directory
 
-This directory contains components related to `rag` functionality in the RATAN RAG backend.
+This directory contains components related to `app` functionality in the RATAN RAG backend.
 
 ## 🎯 Purpose and Responsibilities
 
@@ -10,16 +10,8 @@ Provides encapsulated modules and services for this specific domain. Ensure any 
 
 | File | Description |
 |------|-------------|
-| `chroma_store.py` | Class ChromaStore |
-| `chunker.py` | Class Chunker |
-| `document_loaders.py` | Class DocumentLoader |
-| `embedding_service.py` | Class EmbeddingService |
-| `indexer.py` | Class QdrantUploadError, Class Indexer |
-| `prompt_builder.py` | Class PromptBuilder |
-| `qdrant_store.py` | Class QdrantStore |
-| `rag_service.py` | Class RAGService |
-| `retrieval_service.py` | Class RetrievalService |
-| `vector_store.py` | Function get_vector_store, Class VectorStore |
+| `exceptions.py` | Class DuplicateDocumentError |
+| `main.py` | Function read_root |
 
 ## ⚙️ Internal Workflow
 Files in this directory interact closely. Service files generally orchestrate operations, while utility or model files define the schemas and algorithms.

@@ -254,6 +254,7 @@ sequenceDiagram
 |----------|---------|----------|---------|
 | `GROQ_API_KEY` | Primary LLM Authentication | Yes | `gsk_abc123...` |
 | `GOOGLE_API_KEY` | Fallback LLM Auth | Yes | `AIzaSy_...` |
+| `HF_TOKEN` | Hugging Face Hub Auth (prevents rate limits) | Yes | `hf_abc...` |
 | `QDRANT_URL` | Vector DB Cluster Endpoint | Yes | `https://xyz.qdrant.io` |
 | `QDRANT_API_KEY` | Vector DB Auth Token | Yes | `eyJhbG...` |
 | `STORAGE_PROVIDER` | Toggle storage ('local' or 'b2') | No (Defaults to local) | `b2` |

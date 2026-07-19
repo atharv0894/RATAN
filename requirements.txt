@@ -73,6 +73,7 @@ google-genai
 # FILE / DATA UTILITIES
 # =========================
 numpy
+b2sdk
 
 # =========================
 # TESTING

@@ -214,7 +214,8 @@ sequenceDiagram
 
 ## 🛡 Storage Architecture
 
-* **Local Storage (`backend/storage/uploads/`):** Acts as the primary cold-storage volume for raw PDFs.
+* **Cloud Storage (`Backblaze B2`):** Acts as the primary cold-storage volume for raw PDFs. Ensures high durability and accessibility across distributed nodes.
+* **Local Cache (`backend/storage/uploads/`):** Acts as a temporary ephemeral cache for file processing before uploading to B2.
 * **Vector Storage (`Qdrant`):** Manages the dense vector embeddings and metadata indexing.
 * **SQLite (`ratan_registry.db`):** Maintains the source of truth for UI client status polling (`Processing`, `Ready`, `Failed`).
 
@@ -237,6 +238,10 @@ sequenceDiagram
 | `GOOGLE_API_KEY` | Fallback LLM Auth | Yes | `AIzaSy_...` |
 | `QDRANT_URL` | Vector DB Cluster Endpoint | Yes | `https://xyz.qdrant.io` |
 | `QDRANT_API_KEY` | Vector DB Auth Token | Yes | `eyJhbG...` |
+| `STORAGE_PROVIDER` | Toggle storage ('local' or 'b2') | No (Defaults to local) | `b2` |
+| `B2_KEY_ID` | Backblaze B2 Key ID | Yes (if b2) | `005f4c4d...` |
+| `B2_APPLICATION_KEY` | Backblaze B2 App Key | Yes (if b2) | `K005E64e...` |
+| `B2_BUCKET_NAME` | Backblaze B2 Bucket Name | Yes (if b2) | `RATANAI` |
 
 ---
 

@@ -12,7 +12,7 @@ The `backend/` folder isolates all server-side logic, environment configuration,
 | Item | Type | Description |
 |------|------|-------------|
 | `app/` | Directory | The core FastAPI application containing all routes, RAG logic, and services. |
-| `storage/` | Directory | Local volume where incoming PDFs are securely saved before vectorization. |
+| `storage/` | Directory | Local cache where incoming PDFs are securely buffered before being uploaded to Backblaze B2. |
 | `chroma_db/` | Directory | Legacy/fallback local vector storage (currently superseded by Qdrant). |
 | `test_data/` | Directory | Contains sample industrial PDFs for validation and QA stress testing. |
 | `ratan_registry.db` | File | The SQLite database that tracks document metadata and processing statuses. |
@@ -25,7 +25,7 @@ The `backend/` folder isolates all server-side logic, environment configuration,
 When the server boots, it reads the `.env` file to establish connections to the external LLM providers (Groq/Gemini) and the Qdrant Cloud Vector Database.
 
 The HTTP endpoints act as the interface:
-1. **Uploads** are temporarily stored in `storage/uploads/`, parsed, vectorized, and pushed to Qdrant.
+1. **Uploads** are temporarily buffered in `storage/uploads/`, uploaded to Backblaze B2 Cloud Storage, vectorized, and pushed to Qdrant.
 2. **Queries** invoke the `app/rag/rag_service.py` engine, which fetches chunks from Qdrant and streams prompts to the LLM.
 
 ## 🔧 Dependencies

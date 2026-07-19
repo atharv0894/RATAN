@@ -35,25 +35,31 @@ flowchart TD
     User -->|Ask Question| API
     
     subgraph Ingestion Pipeline
+        API -->|Save File| Storage[B2 Cloud / Local Cache]
         API -->|Parse| Loader[PDF Plumber Loader]
         Loader -->|Split| Chunker[Semantic Chunker]
+        Chunker -->|Extract Entities| Entity[Entity Extractor]
+        Entity -->|Save Metadata| SQLite[(SQLite DB)]
         Chunker -->|Vectorize| Embed[BAAI/bge-m3 Embedder]
-        Embed -->|Store| DB[(Qdrant Vector DB)]
-        Embed -->|Save File| Storage[Local Storage]
+        Embed -->|Store Vectors| DB[(Qdrant Vector DB)]
     end
     
     subgraph Retrieval Pipeline
-        API -->|Extract| Entity[Entity Extractor]
-        Entity -->|Filter Metadata| DB
-        API -->|Embed Query| Embed
-        Embed -->|Search| DB
-        DB -->|MMR Reranking| Retriever[Retrieval Service]
+        API -->|Extract| Entity2[Entity Extractor]
+        Entity2 -->|Resolve Filenames| SQLite
+        API -->|Query| RAG[RAG Service]
+        SQLite -->|Pass Metadata Filter| RAG
+        RAG -->|Embed Query| Embed2[BAAI/bge-m3 Embedder]
+        Embed2 -->|Search| DB
+        DB -->|Raw Chunks| Retriever[Retrieval Service]
+        Retriever -->|MMR Reranking| RAG
     end
     
     subgraph Generation Pipeline
-        Retriever -->|Construct Context| Prompt[Prompt Builder]
+        RAG -->|Decompose Query| Gemini[Gemini 2.5 Flash]
+        RAG -->|Construct Context| Prompt[Prompt Builder]
         Prompt -->|Primary LLM| Groq[GPT-OSS 120B]
-        Groq -- Rate Limit / Outage --> Gemini[Gemini 2.5 Flash]
+        Groq -- Rate Limit / Outage --> Gemini
         Groq -->|Answer & Citations| API
         Gemini -->|Answer & Citations| API
     end
@@ -65,36 +71,48 @@ flowchart TD
 sequenceDiagram
     actor User
     participant API as FastAPI Router
-    participant Retriever as Retrieval Service
-    participant Qdrant as Vector DB
-    participant LLM as GPT-OSS (Groq)
-    participant Fallback as Gemini (Google)
+    participant SQLite as SQLite Registry
+    participant RAG as RAG Engine
+    participant Embed as Embedder (bge-m3)
+    participant Qdrant as Qdrant Vector DB
+    participant Gemini as Gemini (Decomposer/Fallback)
+    participant Groq as GPT-OSS (Primary LLM)
 
-    User->>API: POST /chat {question, filename}
-    API->>Retriever: generate_answer(query)
-    Retriever->>LLM: decompose_query(query)
-    LLM-->>Retriever: [sub_queries]
+    User->>API: POST /chat {question, filename?}
+    
+    opt If no filename provided
+        API->>API: Extract Entities from Query (NLP)
+        API->>SQLite: Resolve Entities to Target Filenames
+        SQLite-->>API: Target Metadata Filter
+    end
+    
+    API->>RAG: generate_answer(query, where_clause)
+    
+    RAG->>Gemini: decompose_query(query)
+    Gemini-->>RAG: [sub_queries]
     
     loop For each sub_query
-        Retriever->>Qdrant: similarity_search()
-        Qdrant-->>Retriever: Top K Chunks
+        RAG->>Embed: generate_embeddings(sub_query)
+        Embed-->>RAG: Query Vector
+        RAG->>Qdrant: similarity_search(Vector, where_clause)
+        Qdrant-->>RAG: Top K Chunks
     end
     
-    Retriever->>Retriever: MMR Reranking & Deduplication
-    Retriever->>LLM: invoke(context + original_query)
+    RAG->>RAG: Execute MMR Reranking & Deduplication
+    RAG->>Groq: invoke(Prompt + Context)
     
-    alt If Groq Rate Limited (HTTP 429)
-        LLM-->>Retriever: 429 Too Many Requests
-        Retriever->>Retriever: Automatic Backoff (max_retries=5)
-        Retriever->>LLM: retry invoke()
-    else If Groq Offline (HTTP 503)
-        LLM-->>Retriever: Exception
-        Retriever->>Fallback: invoke(context + original_query)
-        Fallback-->>Retriever: Generated Answer
+    alt If Groq Hits Rate Limit (429)
+        Groq-->>RAG: 429 Too Many Requests
+        RAG->>RAG: Apply Exponential Backoff (max_retries=5)
+        RAG->>Groq: retry invoke()
+    else If Groq Offline (503)
+        Groq-->>RAG: ResourceExhausted Exception
+        RAG->>Gemini: invoke(Prompt + Context) (Fallback)
+        Gemini-->>RAG: Generated Answer
     end
     
-    LLM-->>Retriever: Generated Answer (JSON)
-    Retriever-->>API: {answer, citations}
+    Groq-->>RAG: Generated Answer (JSON)
+    RAG-->>API: {answer, citations}
     API-->>User: JSON Response
 ```
 

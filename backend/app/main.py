@@ -5,15 +5,15 @@ from fastapi.middleware.cors import CORSMiddleware
 # pyrefly: ignore [missing-import]
 from dotenv import load_dotenv
 
+# Load environment variables FIRST before importing any internal modules
+load_dotenv()
+
 from app.api import health, documents, chat, stats, entities, cleanup
 # pyrefly: ignore [missing-import]
 from fastapi.responses import JSONResponse
 import logging
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
-
-# Load environment variables
-load_dotenv()
 
 app = FastAPI(
     title="RATAN API",

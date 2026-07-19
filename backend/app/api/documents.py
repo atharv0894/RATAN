@@ -11,76 +11,51 @@ router = APIRouter()
 storage_service = StorageService()
 
 @router.post("/upload")
-async def upload_documents(file: List[UploadFile] = File(...)):
-    print(f"[Upload lifecycle] Upload started for {len(file)} files")
+async def upload_documents(file: UploadFile = File(...)):
+    print(f"[Upload lifecycle] Upload started for {file.filename}")
     
-    if len(file) > 10:
-        raise HTTPException(status_code=400, detail="Maximum 10 files allowed")
+    if not file.filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=415, detail="Only PDF files are supported")
         
-    total_size = 0
-    for f in file:
-        if not f.filename.lower().endswith(".pdf"):
-            raise HTTPException(status_code=415, detail="Only PDF files are supported")
+    file.file.seek(0, 2)
+    size = file.file.tell()
+    file.file.seek(0)
+    
+    if size > 50 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="File too large (max 50MB)")
             
-        f.file.seek(0, 2)
-        size = f.file.tell()
-        f.file.seek(0)
-        
-        if size > 50 * 1024 * 1024:
-            raise HTTPException(status_code=413, detail="File too large (max 50MB)")
-            
-        total_size += size
-        
-    if total_size > 200 * 1024 * 1024:
-        raise HTTPException(status_code=413, detail="Total request too large (max 200MB)")
-            
-    # Process files
-    results = []
     doc_service = get_document_service()
+    document_id = str(uuid.uuid4())
     
-    for f in file:
-        document_id = str(uuid.uuid4())
-        # Use StorageService to save the file
-        save_path = storage_service.save(f.file, document_id, f.filename)
-        
-        try:
-            doc_id = doc_service.process_and_index(f.filename, save_path, document_id=document_id)
-            results.append({
-                "status": "uploaded",
-                "document_id": doc_id,
-                "filename": f.filename,
-                "duplicate": False
-            })
-        except DuplicateDocumentError as e:
-            storage_service.delete(document_id)
-            results.append({
-                "status": "already_exists",
-                "document_id": e.document_id,
-                "filename": f.filename,
-                "indexed": True,
-                "duplicate": True,
-                "message": "Document already indexed. Using existing document."
-            })
-        except QdrantUploadError as e:
-            storage_service.delete(document_id)
-            results.append(e.error_details)
-        except Exception as e:
-            import traceback
-            traceback.print_exc()
-            storage_service.delete(document_id)
-            results.append({"filename": f.filename, "error": str(e), "status": "Failed", "code": 500})
-            
-    # Check if there were any 500s
-    for r in results:
-        if r.get("status") == "failed" and "stage" in r:
-            raise HTTPException(status_code=500, detail=r)
-        if r.get("code") == 500:
-            raise HTTPException(status_code=500, detail="Unexpected error during processing")
-        
-    # Return single object if 1 file, else list (matches the requested exact response format)
-    if len(results) == 1:
-        return results[0]
-    return results
+    # Use StorageService to save the file
+    save_path = storage_service.save(file.file, document_id, file.filename)
+    
+    try:
+        doc_id = doc_service.process_and_index(file.filename, save_path, document_id=document_id)
+        return {
+            "status": "uploaded",
+            "document_id": doc_id,
+            "filename": file.filename,
+            "duplicate": False
+        }
+    except DuplicateDocumentError as e:
+        storage_service.delete(document_id)
+        return {
+            "status": "already_exists",
+            "document_id": e.document_id,
+            "filename": file.filename,
+            "indexed": True,
+            "duplicate": True,
+            "message": "Document already indexed. Using existing document."
+        }
+    except QdrantUploadError as e:
+        storage_service.delete(document_id)
+        raise HTTPException(status_code=500, detail=e.error_details)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        storage_service.delete(document_id)
+        raise HTTPException(status_code=500, detail={"filename": file.filename, "error": str(e), "status": "Failed"})
 
 @router.get("")
 def list_documents():

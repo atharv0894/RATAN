@@ -254,13 +254,17 @@ sequenceDiagram
 |----------|---------|----------|---------|
 | `GROQ_API_KEY` | Primary LLM Authentication | Yes | `gsk_abc123...` |
 | `GOOGLE_API_KEY` | Fallback LLM Auth | Yes | `AIzaSy_...` |
-| `HF_TOKEN` | Hugging Face Hub Auth (prevents rate limits) | Yes | `hf_abc...` |
 | `QDRANT_URL` | Vector DB Cluster Endpoint | Yes | `https://xyz.qdrant.io` |
 | `QDRANT_API_KEY` | Vector DB Auth Token | Yes | `eyJhbG...` |
 | `STORAGE_PROVIDER` | Toggle storage ('local' or 'b2') | No (Defaults to local) | `b2` |
 | `B2_KEY_ID` | Backblaze B2 Key ID | Yes (if b2) | `005f4c4d...` |
 | `B2_APPLICATION_KEY` | Backblaze B2 App Key | Yes (if b2) | `K005E64e...` |
 | `B2_BUCKET_NAME` | Backblaze B2 Bucket Name | Yes (if b2) | `RATANAI` |
+| `HF_TOKEN` | Hugging Face Hub Authentication Token | Recommended | `hf_...` |
+| `HF_HUB_OFFLINE` | Force offline mode for embeddings | No | `1` |
+
+> [!TIP]
+> **Hugging Face Rate Limits:** If you get a `500 Internal Server Error` stating that `BAAI/bge-m3` is not a local folder when uploading a document, you are being rate-limited by Hugging Face's anonymous API. To fix this, either provide an `HF_TOKEN` (from a free Hugging Face account) OR run the app once successfully and then set `HF_HUB_OFFLINE=1` in your `.env` to read the model directly from your local cache!
 
 ---
 

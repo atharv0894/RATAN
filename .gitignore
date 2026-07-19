@@ -39,8 +39,8 @@ qdrant_storage/
 test_data/
 **/test_data/
 
-# (Removed generic storage/ rules to allow backend/app/storage/)
-backend/storage/uploads/
+# Ignore only the specific file storage volume, not the code folder
+/backend/storage/uploads/
 
 uploads/
 **/uploads/
@@ -108,8 +108,7 @@ dist/
 # -------------------------
 .cache/
 huggingface/
-# (Removed generic models/ rule to allow backend/app/models/)
-/models/
+.cache/models/
 
 # -------------------------
 # Local Database Files

@@ -84,3 +84,5 @@ b2sdk
 # =========================
 pytest
 pytest-asyncio
+psutil
+PyJWT

@@ -46,6 +46,6 @@ app.include_router(stats.router, prefix="/stats", tags=["stats"])
 app.include_router(entities.router, prefix="/entities", tags=["entities"])
 app.include_router(cleanup.router, prefix="/cleanup", tags=["cleanup"])
 
-@app.get("/")
+@app.api_route("/", methods=["GET", "HEAD"])
 def read_root():
     return {"message": "Welcome to RATAN API"}

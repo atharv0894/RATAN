@@ -7,7 +7,7 @@ import io
 
 router = APIRouter()
 
-@router.get("/health", response_model=HealthResponse)
+@router.api_route("", methods=["GET", "HEAD"], response_model=HealthResponse)
 def get_health():
     num_docs = 0
     try:
@@ -26,10 +26,9 @@ def get_health():
     
     try:
         if db_type == "Qdrant":
-            # pyrefly: ignore [missing-import]
-            from qdrant_client import QdrantClient
-            client = QdrantClient(url=os.environ.get("QDRANT_URL"), api_key=os.environ.get("QDRANT_API_KEY"), timeout=5.0)
-            vector_count = client.count(collection_name="ratan_documents").count
+            # Skip network call for health check to guarantee <100ms response
+            # and prevent Render from terminating the container due to timeout.
+            vector_count = 0
         elif db_type == "Chroma":
             # pyrefly: ignore [missing-import]
             import chromadb

@@ -21,7 +21,7 @@ def get_health():
     except Exception:
         pass
 
-    db_type = os.environ.get("VECTOR_DB", "qdrant").capitalize()
+    db_type = "Qdrant"
     vector_count = 0
     
     try:

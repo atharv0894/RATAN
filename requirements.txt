@@ -42,7 +42,6 @@ pillow
 # OCR
 # =========================
 pytesseract
-pdfplumber
 
 # =========================
 # EMBEDDINGS

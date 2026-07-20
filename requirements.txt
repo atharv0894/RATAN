@@ -33,6 +33,7 @@ bcrypt
 # DOCUMENT PROCESSING
 # =========================
 pypdf
+pdfplumber
 python-docx
 openpyxl
 pandas

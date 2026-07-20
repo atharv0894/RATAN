@@ -4,7 +4,7 @@ import logging
 
 def get_vector_store(collection_name="ratan_documents", **kwargs):
     vector_db_choice = "qdrant"
-    dev_mode = os.environ.get("DEV_MODE", "true").lower() == "true"
+    dev_mode = os.environ.get("DEV_MODE", "false").lower() == "true"
     
     if vector_db_choice == "qdrant":
         try:

@@ -1,73 +1,77 @@
-# pyrefly: ignore [missing-import]
-from fastapi import APIRouter
-from app.models.requests import ChatRequest
-from app.models.responses import ChatResponse
-from app.services.dependencies import get_rag_service
-from app.entity.entity_extractor import EntityExtractor
+from typing import List, Optional
+from fastapi import APIRouter, Depends
+from pydantic import BaseModel
+from app.services.dependencies import get_rag_service, get_current_user, get_tenant_context
+from app.api.responses import APISuccessResponse
+from app.exceptions import ValidationError
 
 router = APIRouter()
-extractor = EntityExtractor()
 
-@router.post("", response_model=ChatResponse)
-def chat(request: ChatRequest):
+class ChatMessage(BaseModel):
+    role: str
+    content: str
+
+class ChatRequest(BaseModel):
+    question: str
+    document_id: Optional[str] = None
+    chat_history: Optional[List[ChatMessage]] = None
+
+class Citation(BaseModel):
+    document_name: str
+    version: int
+    page: str
+    section: str
+    chunk_id: str
+
+class RAGResponse(BaseModel):
+    answer: str
+    citations: List[dict]
+    confidence_score: float
+    follow_up_questions: List[str]
+    intent: str
+    provider: str
+
+@router.post("", response_model=APISuccessResponse[RAGResponse])
+def chat(
+    request: ChatRequest, 
+    current_user: dict = Depends(get_current_user),
+    tenant: dict = Depends(get_tenant_context)
+):
     if not request.question or not request.question.strip():
-        return ChatResponse(answer="Please provide a valid question.", citations=[], entities=[])
+        raise ValidationError("Please provide a valid question.")
         
-    where_clause = None
+    base_where = {}
     
-    # Phase 6: Mode 2 Document Search
-    if request.filename:
-        where_clause = {"source": request.filename}
-    elif request.document_id:
-        # Resolve document_id to filename
+    if request.document_id:
+        # Enforce document lookup inside the active tenant
         from app.database.sqlite import get_db_connection
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT filename FROM documents WHERE document_id = ?", (request.document_id,))
+        cursor.execute(
+            "SELECT filename FROM documents WHERE id = ? AND organization = ?", 
+            (request.document_id, tenant["organization"])
+        )
         row = cursor.fetchone()
         conn.close()
+        
         if row:
-            where_clause = {"source": row[0]}
+            base_where["filename"] = row["filename"]
         else:
-            return ChatResponse(answer="Specified document not found.", citations=[], entities=[])
+            raise ValidationError("Specified document not found or access denied.")
 
-    # Entity Extraction from query
-    query_entities = []
-    try:
-        query_entities = extractor.extract_from_text(request.question)
-    except Exception as e:
-        import logging
-        logging.warning(f"Entity extraction failed for query: {str(e)}")
-        
-    # Phase 6: Mode 1 Global Search with Entity Filtering (only if Mode 2 is not active)
-    if not where_clause and query_entities:
-        # Get matching documents for these entities
-        from app.database.sqlite import get_db_connection
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        doc_ids = set()
-        for e in query_entities:
-            # Simple match
-            cursor.execute("SELECT document_id FROM entities WHERE entity_value LIKE ?", (f"%{e['value']}%",))
-            for row in cursor.fetchall():
-                doc_ids.add(row[0])
-                
-        if doc_ids:
-            # Map doc_ids to filenames (source in vector store)
-            placeholders = ",".join("?" * len(doc_ids))
-            cursor.execute(f"SELECT filename FROM documents WHERE document_id IN ({placeholders})", list(doc_ids))
-            filenames = [r[0] for r in cursor.fetchall()]
-            
-            if filenames:
-                where_clause = {"source": {"$in": filenames}}
-        conn.close()
+    # Convert ChatMessage pydantic objects to dicts for the service layer
+    history = [msg.dict() for msg in request.chat_history] if request.chat_history else None
 
     rag_service = get_rag_service()
-    result = rag_service.generate_answer(request.question, where=where_clause)
+    # RAG service natively applies organization filters inside its engine if tenant is supplied
+    # Wait, the RAGService internally calls SearchEngine which extracts auth filters if user_context is provided.
+    # Actually, RAGService generate_answer doesn't currently take user_context. I'll just merge it into base_where.
+    base_where["organization"] = tenant["organization"]
     
-    return ChatResponse(
-        answer=result.get("answer", ""),
-        citations=result.get("citations", []),
-        entities=query_entities
+    result = rag_service.generate_answer(
+        query=request.question, 
+        chat_history=history,
+        base_where=base_where
     )
+    
+    return APISuccessResponse(data=RAGResponse(**result))

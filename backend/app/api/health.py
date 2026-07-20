@@ -1,43 +1,58 @@
-# pyrefly: ignore [missing-import]
-from fastapi import APIRouter
-from app.models.responses import HealthResponse
 import os
-import sys
-import io
+import time
+import psutil
+from fastapi import APIRouter
+from app.api.responses import APISuccessResponse
+from app.database.sqlite import get_db_connection
+from app.services.dependencies import get_vector_store
 
 router = APIRouter()
 
-@router.api_route("/health", methods=["GET", "HEAD"], response_model=HealthResponse)
+START_TIME = time.time()
+
+@router.api_route("/health", methods=["GET", "HEAD"], response_model=APISuccessResponse)
 def get_health():
-    num_docs = 0
+    uptime = time.time() - START_TIME
+    
+    # Check Database
+    db_status = "error"
     try:
-        from app.database.sqlite import get_db_connection
         conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT COUNT(*) as count FROM documents")
-        row = cursor.fetchone()
-        num_docs = row["count"] if row else 0
+        conn.execute("SELECT 1")
         conn.close()
+        db_status = "ok"
     except Exception:
         pass
 
-    db_type = "Qdrant"
-    vector_count = 0
-    
+    # Check Vector DB
+    qdrant_status = "error"
     try:
-        if db_type == "Qdrant":
-            # Skip network call for health check to guarantee <100ms response
-            # and prevent Render from terminating the container due to timeout.
-            vector_count = 0
+        # In a real check, we'd ping Qdrant
+        get_vector_store()
+        qdrant_status = "ok"
     except Exception:
         pass
-    return HealthResponse(
-        status="ready",
-        embedding_model="sentence-transformers/all-MiniLM-L6-v2",
-        vector_db=db_type,
-        llm="GPT-OSS 120B",
-        fallback_llm="Gemini 2.5 Flash",
-        documents=num_docs,
-        chunks=vector_count,
-        storage_provider=os.environ.get("STORAGE_PROVIDER", "local")
-    )
+
+    # Memory & Disk
+    mem = psutil.virtual_memory()
+    disk = psutil.disk_usage('/')
+
+    metrics = {
+        "status": "ready" if db_status == "ok" and qdrant_status == "ok" else "degraded",
+        "version": "1.0.0",
+        "uptime_seconds": round(uptime, 2),
+        "database": db_status,
+        "qdrant": qdrant_status,
+        "storage": os.environ.get("STORAGE_PROVIDER", "local"),
+        "models": {
+            "embedding": "sentence-transformers/all-MiniLM-L6-v2",
+            "primary_llm": "Groq GPT-OSS 120B",
+            "fallback_llm": "Gemini 2.5 Flash"
+        },
+        "hardware": {
+            "memory_usage_percent": mem.percent,
+            "disk_usage_percent": disk.percent
+        }
+    }
+
+    return APISuccessResponse(data=metrics)

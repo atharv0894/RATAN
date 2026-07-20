@@ -13,7 +13,7 @@ The `rag` module abstracts the complexities of the Hugging Face embedding models
 |-----------|----------------|
 | `chunker.py` | Implements recursive character splitting with overlap (1500 chars / 200 overlap). Ensures markdown tables and sentences are never split in the middle. |
 | `document_loaders.py` | Uses `pdfplumber` to extract precise text, page numbers, and spatial layout data from raw PDFs. |
-| `embedding_service.py` | Wrapper for `BAAI/bge-m3`. Projects text chunks into a 1024-dimensional dense vector space optimized for multilingual semantic similarity. |
+| `embedding_service.py` | Wrapper for `all-MiniLM-L6-v2`. Projects text chunks into a 384-dimensional dense vector space optimized for semantic similarity. |
 | `qdrant_store.py` | The interface to the Qdrant Cloud Cluster. Handles indexing payloads and conducting Cosine Similarity searches. |
 | `retrieval_service.py` | Implements Maximal Marginal Relevance (MMR) reranking to maximize diversity and reduce duplicate context injected into the LLM. |
 | `rag_service.py` | The master orchestration class. Manages the primary (`openai/gpt-oss-120b`) and fallback (`gemini-2.5-flash`) LLM generation, injecting the retrieved context into a strict citation-enforced prompt. |

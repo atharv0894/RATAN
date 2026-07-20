@@ -18,11 +18,11 @@ To bridge the gap between static industrial documentation and dynamic, intellige
 - Guarantee hallucination resistance by strictly enforcing document-grounded citations.
 
 ### Features
-- **Semantic Chunking:** Context-aware slicing of dense industrial PDFs using `BAAI/bge-m3`.
+- **Semantic Chunking:** Context-aware slicing of dense industrial PDFs using `sentence-transformers/all-MiniLM-L6-v2`.
 - **Hybrid Search Engine:** `Qdrant` vector database combined with entity-based metadata filtering.
 - **Resilient Generation:** Primary generation via `GPT-OSS 120B` with intelligent auto-failover to `Gemini 2.5 Flash`.
 - **Advanced Table Extraction:** Preserves spatial and relational contexts of deep financial tables.
-- **Multilingual Native Retrieval:** Query natively across Hindi, Marathi, and English.
+- **English-Optimized Retrieval:** Extremely fast semantic search optimized for English documentation.
 - **Transparent Citations:** Every generated fact is traced back to the exact chunk, page, and document.
 
 ---
@@ -40,7 +40,7 @@ flowchart TD
         Loader -->|Split| Chunker[Semantic Chunker]
         Chunker -->|Extract Entities| Entity[Entity Extractor]
         Entity -->|Save Metadata| SQLite[(SQLite DB)]
-        Chunker -->|Vectorize| Embed[BAAI/bge-m3 Embedder]
+        Chunker -->|Vectorize| Embed[all-MiniLM-L6-v2 Embedder]
         Embed -->|Store Vectors| DB[(Qdrant Vector DB)]
     end
     
@@ -49,7 +49,7 @@ flowchart TD
         Entity2 -->|Resolve Filenames| SQLite
         API -->|Query| RAG[RAG Service]
         SQLite -->|Pass Metadata Filter| RAG
-        RAG -->|Embed Query| Embed2[BAAI/bge-m3 Embedder]
+        RAG -->|Embed Query| Embed2[all-MiniLM-L6-v2 Embedder]
         Embed2 -->|Search| DB
         DB -->|Raw Chunks| Retriever[Retrieval Service]
         Retriever -->|MMR Reranking| RAG
@@ -73,7 +73,7 @@ sequenceDiagram
     participant API as FastAPI Router
     participant SQLite as SQLite Registry
     participant RAG as RAG Engine
-    participant Embed as Embedder (bge-m3)
+    participant Embed as Embedder (all-MiniLM)
     participant Qdrant as Qdrant Vector DB
     participant Gemini as Gemini (Decomposer/Fallback)
     participant Groq as GPT-OSS (Primary LLM)
@@ -150,7 +150,7 @@ sequenceDiagram
 | Component | Technology | Purpose |
 |-----------|------------|---------|
 | **Backend Framework** | `FastAPI` | High-performance asynchronous API server. |
-| **Embeddings** | `BAAI/bge-m3` | State-of-the-art multilingual embedding model (1024 dims). |
+| **Embeddings** | `all-MiniLM-L6-v2` | Fast, lightweight English embedding model (384 dims). |
 | **Vector DB** | `Qdrant` | High-speed cloud vector similarity search. |
 | **Primary LLM** | `openai/gpt-oss-120b` (via Groq) | Fast, highly accurate reasoning and generation. |
 | **Fallback LLM** | `gemini-2.5-flash` (via Google) | Redundant generation pipeline for disaster recovery. |
@@ -218,7 +218,7 @@ sequenceDiagram
 2. **Save:** `LocalStorage` saves the PDF to disk.
 3. **Parse:** `DocumentLoader` extracts text and spatial data using `pdfplumber`.
 4. **Chunk:** `Chunker` divides text into semantically complete, overlapping chunks (preserving markdown tables).
-5. **Embed:** `EmbeddingService` converts chunks to 1024-dimension vectors via `BAAI/bge-m3`.
+5. **Embed:** `EmbeddingService` converts chunks to 384-dimension vectors via `sentence-transformers/all-MiniLM-L6-v2`.
 6. **Store:** `Qdrant` stores vectors and associated metadata (Source, Page, Chunk ID).
 
 ### 🤖 Chat Pipeline
@@ -264,7 +264,7 @@ sequenceDiagram
 | `HF_HUB_OFFLINE` | Force offline mode for embeddings | No | `1` |
 
 > [!TIP]
-> **Hugging Face Rate Limits:** If you get a `500 Internal Server Error` stating that `BAAI/bge-m3` is not a local folder when uploading a document, you are being rate-limited by Hugging Face's anonymous API. To fix this, either provide an `HF_TOKEN` (from a free Hugging Face account) OR run the app once successfully and then set `HF_HUB_OFFLINE=1` in your `.env` to read the model directly from your local cache!
+> **Hugging Face Rate Limits:** If you get a `500 Internal Server Error` stating that `sentence-transformers/all-MiniLM-L6-v2` is not a local folder when uploading a document, you are being rate-limited by Hugging Face's anonymous API. To fix this, either provide an `HF_TOKEN` (from a free Hugging Face account) OR run the app once successfully and then set `HF_HUB_OFFLINE=1` in your `.env` to read the model directly from your local cache!
 
 ---
 

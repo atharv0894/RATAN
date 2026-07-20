@@ -55,7 +55,6 @@ class CleanupService:
                 self.storage_service.delete(storage_path)
                 
             # 8. Delete metadata from SQLite
-            cursor.execute("DELETE FROM document_chunks WHERE version_id = ?", (version_id,))
             cursor.execute("DELETE FROM document_versions WHERE id = ?", (version_id,))
             
             # Check if this was the last version; if so, delete the parent document
@@ -104,12 +103,7 @@ class CleanupService:
             logging.warning(f"Cleanup: Marking stale Processing document {v_id} as Failed.")
             cursor.execute("UPDATE document_versions SET status = 'Failed' WHERE id = ?", (v_id,))
         
-        # 2. Orphan Entities Cleanup
-        logging.info("Cleanup: Removing orphan chunks.")
-        cursor.execute('''
-            DELETE FROM document_chunks 
-            WHERE version_id NOT IN (SELECT id FROM document_versions)
-        ''')
+
         
         # 3. Failed Document Cleanup (Storage + DB)
         cursor.execute("SELECT id FROM document_versions WHERE status = 'Failed'")
@@ -119,7 +113,11 @@ class CleanupService:
             
         # 4. Purge soft-deleted documents if requested
         if purge_deleted:
-            cursor.execute("SELECT id FROM document_versions WHERE is_deleted = 1")
+            cursor.execute("""
+                SELECT v.id FROM document_versions v
+                JOIN documents d ON v.document_id = d.id
+                WHERE d.deleted_at IS NOT NULL
+            """)
             deleted_docs = cursor.fetchall()
             for row in deleted_docs:
                 self.eradicate_document_version(row['id'])

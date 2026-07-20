@@ -35,7 +35,7 @@ def run_migrations(conn: sqlite3.Connection):
     from app.database.schema import create_schema
     create_schema(cursor)
     
-    # 3. Seed base organizational data for FK constraints
+    # 3. Seed base organizational data for FK constraints (Not strictly needed for documents now, but good for users)
     system_org_id = str(uuid.uuid4())
     system_plant_id = str(uuid.uuid4())
     system_dept_id = str(uuid.uuid4())
@@ -59,7 +59,6 @@ def run_migrations(conn: sqlite3.Connection):
     cursor.execute("SELECT * FROM legacy_documents")
     legacy_docs = cursor.fetchall()
     
-    # To group versions of the same file, we need a map of filename -> new document_id
     doc_map = {}
     
     for ldoc in legacy_docs:
@@ -67,56 +66,38 @@ def run_migrations(conn: sqlite3.Connection):
         if filename not in doc_map:
             doc_id = str(uuid.uuid4())
             doc_map[filename] = doc_id
+            
+            deleted_at = ldoc['upload_time'] if ldoc.get('is_deleted', 0) else None
+            
             cursor.execute("""
                 INSERT INTO documents (
-                    id, org_id, plant_id, department_id, owner_id, title, filename, 
-                    document_type, language, equipment, created_at, updated_at, is_deleted, status
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    id, title, filename, owner, organization, plant, department, 
+                    created_at, updated_at, deleted_at, status
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
-                doc_id, system_org_id, system_plant_id, system_dept_id, system_user_id,
-                filename, filename, ldoc.get('document_class', 'Unknown'), 'en', 'Unknown',
-                ldoc['upload_time'], ldoc['upload_time'], ldoc['is_deleted'], 'Active'
+                doc_id, filename, filename, system_user_id, system_org_id, system_plant_id, system_dept_id,
+                ldoc['upload_time'], ldoc['upload_time'], deleted_at, 'Active'
             ))
         
         doc_id = doc_map[filename]
         
         # Insert Version
-        version_id = ldoc['document_id'] # Use the original document_id as the version_id to preserve relationships
+        version_id = ldoc['document_id']
         cursor.execute("""
             INSERT INTO document_versions (
-                id, document_id, version_number, uploaded_by, storage_provider, storage_path,
-                mime_type, file_size, checksum, page_count, chunk_count, embedding_model,
-                vector_collection, vector_count, is_latest, previous_version_id, created_at, updated_at,
-                is_deleted, status
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                id, document_id, version_number, checksum, storage_path, collection_name,
+                uploaded_by, uploaded_at, mime_type, file_size, embedding_model, chunk_count,
+                vector_count, is_latest, status, is_locked
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
-            version_id, doc_id, ldoc.get('version_number', 1), system_user_id, 
-            ldoc.get('storage_provider', 'local'), ldoc.get('storage_path', ''),
-            ldoc.get('mime_type', 'application/pdf'), ldoc.get('file_size', 0), ldoc.get('checksum_sha256', ''),
-            ldoc.get('page_count', 0), ldoc['chunk_count'], ldoc['embedding_model'],
-            ldoc['vector_db'], ldoc['chunk_count'], ldoc.get('is_latest', 1), 
-            ldoc.get('previous_version', None), ldoc['upload_time'], ldoc['upload_time'],
-            ldoc['is_deleted'], ldoc['status']
+            version_id, doc_id, ldoc.get('version_number', 1), ldoc.get('checksum_sha256', ''), 
+            ldoc.get('storage_path', ''), ldoc.get('vector_db', 'default'),
+            system_user_id, ldoc['upload_time'],
+            ldoc.get('mime_type', 'application/pdf'), ldoc.get('file_size', 0), ldoc['embedding_model'],
+            ldoc['chunk_count'], ldoc['chunk_count'], ldoc.get('is_latest', 1), ldoc['status'], ldoc.get('is_locked', 0)
         ))
 
-    # 5. Migrate Entities -> document_chunks
-    try:
-        cursor.execute("SELECT * FROM legacy_entities")
-        legacy_entities = cursor.fetchall()
-        for l_ent in legacy_entities:
-            # In V1, entities were mapped to legacy document_id (which is now version_id)
-            cursor.execute("""
-                INSERT INTO document_chunks (
-                    id, version_id, chunk_index, content, page_number, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (
-                l_ent['entity_id'], l_ent['document_id'], 0, l_ent['entity_value'], 
-                l_ent.get('page_number', 1), l_ent['created_at'], l_ent['created_at']
-            ))
-    except sqlite3.OperationalError:
-        pass
-
-    # 6. Migrate Audit Logs
+    # 5. Migrate Audit Logs
     try:
         cursor.execute("SELECT * FROM legacy_audit_logs")
         legacy_logs = cursor.fetchall()
@@ -133,7 +114,7 @@ def run_migrations(conn: sqlite3.Connection):
     except sqlite3.OperationalError:
         pass
         
-    # 7. Drop legacy tables
+    # 6. Drop legacy tables
     cursor.execute("DROP TABLE legacy_documents")
     try:
         cursor.execute("DROP TABLE legacy_entities")

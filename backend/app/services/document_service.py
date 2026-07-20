@@ -91,8 +91,7 @@ class DocumentService:
                 storage_path=storage_path,
                 chunk_count=0,
                 vector_collection=vector_db,
-                model=emb_model,
-                previous_version_id=prev_version_id
+                model=emb_model
             )
             
             cursor.execute("UPDATE document_versions SET status = 'Processing' WHERE id = ?", (version_id,))
@@ -119,11 +118,6 @@ class DocumentService:
                     chunks.append(info['text'])
                     metadatas.append(info['metadata'])
                     chunk_ids.append(info['chunk_id'])
-                    
-                    cursor.execute("""
-                        INSERT INTO document_chunks (id, version_id, chunk_index, content, page_number, created_at, updated_at)
-                        VALUES (?, ?, ?, ?, ?, ?, ?)
-                    """, (info['chunk_id'], version_id, len(chunks), info['text'], base_meta['page_no'], time.time(), time.time()))
 
             if chunks:
                 self.indexer.index_chunks(chunks, metadatas=metadatas, chunk_ids=chunk_ids, document_id=document_id, filename=filename)
@@ -161,20 +155,20 @@ class DocumentService:
             "status": d["status"],
             "file_size": d["file_size"],
             "chunk_count": d["chunk_count"],
-            "upload_time": d["created_at"],
-            "storage_provider": d["storage_provider"],
+            "storage_provider": "local",
             "version_number": d["version_number"],
             "is_latest": 1,
-            "is_deleted": d["is_deleted"]
+            "is_deleted": False
         } for d in docs]
 
     def get_document(self, document_id: str):
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute("""
-            SELECT d.id as document_id, d.filename, v.status, v.chunk_count, v.created_at as upload_time,
-                   v.embedding_model, v.vector_collection as vector_db, 0.0 as processing_time,
-                   v.storage_path, v.checksum as checksum_sha256, v.version_number, v.is_latest, v.is_deleted
+            SELECT d.id as document_id, d.filename, v.status, v.chunk_count, v.uploaded_at as upload_time,
+                   v.embedding_model, v.collection_name as vector_db, 0.0 as processing_time,
+                   v.storage_path, v.checksum as checksum_sha256, v.version_number, v.is_latest, 
+                   CASE WHEN d.deleted_at IS NOT NULL THEN 1 ELSE 0 END as is_deleted
             FROM documents d
             LEFT JOIN document_versions v ON d.id = v.document_id AND v.is_latest = 1
             WHERE d.id = ?
@@ -194,6 +188,21 @@ class DocumentService:
             return True
         except Exception as e:
             logging.error(f"Soft delete failed: {e}")
+            raise e
+        finally:
+            conn.close()
+
+    def restore_document(self, document_id: str):
+        conn = get_db_connection()
+        doc_repo = DocumentRepository(conn)
+        audit_repo = AuditRepository(conn)
+        
+        try:
+            doc_repo.restore_document(document_id)
+            audit_repo.log("RESTORE", document_id, "Success")
+            return True
+        except Exception as e:
+            logging.error(f"Restore failed: {e}")
             raise e
         finally:
             conn.close()

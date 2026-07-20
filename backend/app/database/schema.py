@@ -79,23 +79,16 @@ def create_schema(cursor: sqlite3.Cursor):
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS documents (
             id TEXT PRIMARY KEY,
-            org_id TEXT NOT NULL,
-            plant_id TEXT NOT NULL,
-            department_id TEXT NOT NULL,
-            owner_id TEXT NOT NULL,
             title TEXT NOT NULL,
             filename TEXT NOT NULL,
-            document_type TEXT NOT NULL,
-            language TEXT NOT NULL,
-            equipment TEXT,
+            owner TEXT NOT NULL,
+            organization TEXT NOT NULL,
+            plant TEXT NOT NULL,
+            department TEXT NOT NULL,
             created_at REAL NOT NULL,
             updated_at REAL NOT NULL,
-            is_deleted INTEGER DEFAULT 0,
-            status TEXT DEFAULT 'Active',
-            FOREIGN KEY (org_id) REFERENCES organizations(id) ON DELETE RESTRICT,
-            FOREIGN KEY (plant_id) REFERENCES plants(id) ON DELETE RESTRICT,
-            FOREIGN KEY (department_id) REFERENCES departments(id) ON DELETE RESTRICT,
-            FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE RESTRICT
+            deleted_at REAL,
+            status TEXT DEFAULT 'Active'
         )
     ''')
     
@@ -105,27 +98,20 @@ def create_schema(cursor: sqlite3.Cursor):
             id TEXT PRIMARY KEY,
             document_id TEXT NOT NULL,
             version_number INTEGER NOT NULL,
-            uploaded_by TEXT NOT NULL,
-            storage_provider TEXT NOT NULL,
+            checksum TEXT NOT NULL,
             storage_path TEXT NOT NULL,
+            collection_name TEXT NOT NULL,
+            uploaded_by TEXT NOT NULL,
+            uploaded_at REAL NOT NULL,
             mime_type TEXT,
             file_size INTEGER NOT NULL,
-            checksum TEXT NOT NULL,
-            page_count INTEGER NOT NULL,
-            chunk_count INTEGER NOT NULL,
             embedding_model TEXT NOT NULL,
-            vector_collection TEXT NOT NULL,
+            chunk_count INTEGER NOT NULL,
             vector_count INTEGER NOT NULL,
             is_latest INTEGER DEFAULT 0,
-            previous_version_id TEXT,
-            created_at REAL NOT NULL,
-            updated_at REAL NOT NULL,
-            is_deleted INTEGER DEFAULT 0,
-            is_locked INTEGER DEFAULT 0,
             status TEXT DEFAULT 'Active',
+            is_locked INTEGER DEFAULT 0,
             FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE,
-            FOREIGN KEY (uploaded_by) REFERENCES users(id) ON DELETE RESTRICT,
-            FOREIGN KEY (previous_version_id) REFERENCES document_versions(id) ON DELETE SET NULL,
             UNIQUE(document_id, version_number)
         )
     ''')
@@ -143,19 +129,7 @@ def create_schema(cursor: sqlite3.Cursor):
         )
     ''')
     
-    # 9. Document Chunks
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS document_chunks (
-            id TEXT PRIMARY KEY,
-            version_id TEXT NOT NULL,
-            chunk_index INTEGER NOT NULL,
-            content TEXT NOT NULL,
-            page_number INTEGER,
-            created_at REAL NOT NULL,
-            updated_at REAL NOT NULL,
-            FOREIGN KEY (version_id) REFERENCES document_versions(id) ON DELETE CASCADE
-        )
-    ''')
+
     
     # 10. Chat Sessions
     cursor.execute('''
@@ -249,6 +223,8 @@ def create_schema(cursor: sqlite3.Cursor):
     
     # Indexes for performance
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_doc_filename ON documents(filename)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_doc_deleted_at ON documents(deleted_at)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_doc_ver_doc_id ON document_versions(document_id)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_doc_ver_checksum ON document_versions(checksum)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_doc_ver_status ON document_versions(status)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)")

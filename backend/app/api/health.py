@@ -7,7 +7,7 @@ import io
 
 router = APIRouter()
 
-@router.api_route("", methods=["GET", "HEAD"], response_model=HealthResponse)
+@router.api_route("/health", methods=["GET", "HEAD"], response_model=HealthResponse)
 def get_health():
     num_docs = 0
     try:

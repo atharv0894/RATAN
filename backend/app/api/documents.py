@@ -14,8 +14,9 @@ storage_service = StorageService()
 async def upload_documents(file: UploadFile = File(...)):
     print(f"[Upload lifecycle] Upload started for {file.filename}")
     
-    if not file.filename.lower().endswith(".pdf"):
-        raise HTTPException(status_code=415, detail="Only PDF files are supported")
+    allowed_exts = (".pdf", ".docx", ".txt", ".md", ".csv")
+    if not file.filename.lower().endswith(allowed_exts):
+        raise HTTPException(status_code=415, detail="Unsupported file format. Allowed: PDF, DOCX, TXT, MD, CSV")
         
     file.file.seek(0, 2)
     size = file.file.tell()

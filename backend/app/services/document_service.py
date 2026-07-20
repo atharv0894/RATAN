@@ -8,8 +8,8 @@ from app.database.repositories import DocumentRepository, AuditRepository, get_s
 from app.rag.embedding_service import EmbeddingService
 from app.rag.vector_store import VectorStore
 from app.rag.indexer import Indexer
-from app.rag.document_loaders import DocumentLoader
 from app.rag.chunker import Chunker
+from app.rag.parsers.factory import ParserFactory
 from app.storage.storage_service import StorageService
 from app.entity.entity_extractor import EntityExtractor
 from app.exceptions import DuplicateDocumentError
@@ -42,6 +42,12 @@ class DocumentService:
 
     def process_and_index(self, filename: str, file_path: str, is_reindex: bool = False):
         logging.info(f"[Upload lifecycle] Upload completed for {filename}")
+        
+        # 1. Validation
+        stat = os.stat(file_path)
+        if stat.st_size == 0:
+            raise ValueError("File is empty.")
+            
         checksum = self._compute_checksum(file_path)
         
         conn = get_db_connection()
@@ -69,8 +75,8 @@ class DocumentService:
             next_v = (cursor.fetchone()['max_v'] or 0) + 1
                 
             # 3. Storage
-            base_name = os.path.splitext(filename)[0].replace(" ", "_")
-            storage_path = f"documents/{base_name}/v{next_v}.pdf"
+            ext = os.path.splitext(filename)[1].lower()
+            storage_path = f"documents/{document_id}/v{next_v}/original{ext}"
             
             with open(file_path, "rb") as f:
                 self.storage_service.save(f, storage_path)
@@ -94,27 +100,39 @@ class DocumentService:
                 model=emb_model
             )
             
+            # Add Processing Job
+            job_id = str(uuid.uuid4())
+            cursor.execute('''INSERT INTO processing_jobs (id, target_type, target_id, status, created_at, updated_at) 
+                              VALUES (?, ?, ?, ?, ?, ?)''',
+                           (job_id, 'document_version', version_id, 'Processing', time.time(), time.time()))
+            
             cursor.execute("UPDATE document_versions SET status = 'Processing' WHERE id = ?", (version_id,))
             conn.commit()
             audit_repo.log("UPLOAD", version_id, "Processing")
             
-            # 5. Indexing
-            loader = DocumentLoader()
-            chunker = Chunker(max_chars=1500, overlap_chars=200)
-            pages = loader.load_file(file_path)
+            # 5. Parsing & Extraction
+            parser = ParserFactory.get_parser(file_path)
+            parsed_doc = parser.parse(file_path, filename=filename, use_ocr=True)
             
-            chunks, metadatas, chunk_ids, full_text = [], [], [], []
-            for page in pages:
-                full_text.append(page['text'])
+            # Update metadata from parsed doc if any
+            if 'mime_type' in parsed_doc.metadata and parsed_doc.metadata['mime_type'] != mime_type:
+                cursor.execute("UPDATE document_versions SET mime_type = ? WHERE id = ?", (parsed_doc.metadata['mime_type'], version_id))
+            
+            # 6. Chunking
+            chunker = Chunker(max_chars=1500, overlap_chars=200)
+            chunks, metadatas, chunk_ids = [], [], []
+            
+            for page in parsed_doc.pages:
                 base_meta = {
-                    "source": filename, 
-                    "page_no": page.get('page_no', 1),
+                    "filename": filename, 
+                    "page": page.page_number,
                     "document_id": document_id,
                     "version_id": version_id,
-                    "version": next_v,
+                    "version_number": next_v,
                     "is_latest": 1
                 }
-                for info in chunker.chunk_text_with_metadata(page['text'], base_meta):
+                for info in chunker.chunk_page_with_metadata(page, base_meta):
+                    info['metadata']['heading'] = info['metadata'].get('section', '')
                     chunks.append(info['text'])
                     metadatas.append(info['metadata'])
                     chunk_ids.append(info['chunk_id'])
@@ -124,9 +142,11 @@ class DocumentService:
                 
             cursor.execute("""
                 UPDATE document_versions 
-                SET chunk_count = ?, page_count = ?, status = 'Indexed'
+                SET chunk_count = ?, vector_count = ?, status = 'Indexed'
                 WHERE id = ?
-            """, (len(chunks), len(pages), version_id))
+            """, (len(chunks), len(chunks), version_id))
+            
+            cursor.execute("UPDATE processing_jobs SET status = 'Completed', finished_at = ? WHERE id = ?", (time.time(), job_id))
             conn.commit()
             
             audit_repo.log("INDEX", version_id, "Success", execution_time_ms=int((time.time() - start_time)*1000))
@@ -136,6 +156,9 @@ class DocumentService:
             if 'version_id' in locals():
                 cursor = conn.cursor()
                 cursor.execute("UPDATE document_versions SET status = 'Failed' WHERE id = ?", (version_id,))
+                if 'job_id' in locals():
+                    cursor.execute("UPDATE processing_jobs SET status = 'Failed', error_message = ?, finished_at = ? WHERE id = ?", 
+                                   (str(e), time.time(), job_id))
                 conn.commit()
                 audit_repo.log("INDEX", version_id, "Failed")
             logging.error(f"[Indexing lifecycle] Indexing failed: {str(e)}")

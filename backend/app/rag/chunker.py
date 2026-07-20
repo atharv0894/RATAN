@@ -6,12 +6,12 @@ class Chunker:
         self.max_chars = max_chars
         self.overlap_chars = overlap_chars
 
-    def chunk_text_with_metadata(self, text: str, base_metadata: dict) -> list[dict]:
+    def chunk_page_with_metadata(self, page, base_metadata: dict) -> list[dict]:
         """
-        Splits text into chunks, respecting section boundaries and preserving metadata.
-        Returns a list of dicts with 'text', 'metadata', and 'chunk_id'.
+        Splits a ParsedPage into chunks, preserving tables and section boundaries.
         """
-        if not text:
+        text = page.text
+        if not text and not page.tables:
             return []
             
         chunks_info = []
@@ -36,6 +36,12 @@ class Chunker:
                 
         if current_section_lines:
             sections.append((current_section_title, "\n".join(current_section_lines)))
+            
+        # Add tables as separate chunks to avoid splitting them
+        if hasattr(page, 'tables') and page.tables:
+            for table_idx, table in enumerate(page.tables):
+                table_text = f"Table {table_idx + 1}:\n" + str(table.get('data', ''))
+                sections.append((current_section_title + " (Table)", table_text))
             
         chunk_idx = 0
         for sec_title, sec_text in sections:

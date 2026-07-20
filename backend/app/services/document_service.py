@@ -2,7 +2,9 @@ import os
 import time
 import uuid
 import hashlib
+import logging
 from app.database.sqlite import get_db_connection
+from app.database.repositories import DocumentRepository, AuditRepository, get_system_user
 from app.rag.embedding_service import EmbeddingService
 from app.rag.vector_store import VectorStore
 from app.rag.indexer import Indexer
@@ -11,7 +13,6 @@ from app.rag.chunker import Chunker
 from app.storage.storage_service import StorageService
 from app.entity.entity_extractor import EntityExtractor
 from app.exceptions import DuplicateDocumentError
-import logging
 
 class DocumentService:
     def __init__(self):
@@ -30,7 +31,6 @@ class DocumentService:
 
     @property
     def indexer(self):
-        from app.rag.indexer import Indexer
         return Indexer(self.embedding_service, self.vector_store)
 
     def _compute_checksum(self, file_path: str) -> str:
@@ -40,273 +40,161 @@ class DocumentService:
                 sha256_hash.update(byte_block)
         return sha256_hash.hexdigest()
 
-    def get_document_by_checksum(self, checksum: str) -> str:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT document_id FROM documents WHERE checksum_sha256 = ?", (checksum,))
-        row = cursor.fetchone()
-        conn.close()
-        return row["document_id"] if row else None
-
-    def process_and_index(self, filename: str, file_path: str, document_id: str = None, is_reindex: bool = False):
+    def process_and_index(self, filename: str, file_path: str, is_reindex: bool = False):
         logging.info(f"[Upload lifecycle] Upload completed for {filename}")
-        
         checksum = self._compute_checksum(file_path)
         
         conn = get_db_connection()
-        cursor = conn.cursor()
+        doc_repo = DocumentRepository(conn)
+        audit_repo = AuditRepository(conn)
         
-        # Determine version and check for duplicate
-        version = 1
-        is_latest = 1
-        previous_version_id = None
-        
-        if not is_reindex:
-            # Check for exact checksum match
-            cursor.execute("SELECT document_id, is_deleted FROM documents WHERE checksum_sha256 = ?", (checksum,))
-            exact_match = cursor.fetchone()
-            if exact_match:
-                conn.close()
-                if exact_match['is_deleted']:
-                    # If it was deleted, we should restore it or treat it differently? 
-                    # For now, if exact match is found, just throw duplicate error to prevent duplication.
-                    pass
-                raise DuplicateDocumentError(exact_match['document_id'])
-                
-            # Check for same filename (new version)
-            cursor.execute("SELECT document_id, version_number FROM documents WHERE filename = ? ORDER BY version_number DESC LIMIT 1", (filename,))
-            latest_doc = cursor.fetchone()
-            
-            if latest_doc:
-                previous_version_id = latest_doc['document_id']
-                version = latest_doc['version_number'] + 1
-                
-        document_id = document_id or str(uuid.uuid4())
-        
-        # Calculate storage path based on filename (no ext) and version
-        import os
-        base_name = os.path.splitext(filename)[0].replace(" ", "_")
-        storage_path = f"documents/{base_name}/v{version}.pdf"
-        
-        # Now move file to storage service
         try:
+            # 1. Duplicate check
+            if doc_repo.check_duplicate_checksum(checksum):
+                raise DuplicateDocumentError("Checksum already exists in the system.")
+                
+            # 2. Document Identity
+            doc_record = doc_repo.find_by_filename(filename)
+            if doc_record:
+                document_id = doc_record['id']
+                latest_v = doc_repo.get_latest_version(document_id)
+                prev_version_id = latest_v['id'] if latest_v else None
+            else:
+                document_id = doc_repo.create_document(filename=filename, title=filename)
+                prev_version_id = None
+                
+            # Calculate next version number for storage path
+            cursor = conn.cursor()
+            cursor.execute("SELECT MAX(version_number) as max_v FROM document_versions WHERE document_id = ?", (document_id,))
+            next_v = (cursor.fetchone()['max_v'] or 0) + 1
+                
+            # 3. Storage
+            base_name = os.path.splitext(filename)[0].replace(" ", "_")
+            storage_path = f"documents/{base_name}/v{next_v}.pdf"
+            
             with open(file_path, "rb") as f:
                 self.storage_service.save(f, storage_path)
-        except Exception as e:
-            conn.close()
-            logging.error(f"Storage failed: {e}")
-            raise e
-            
-        start_time = time.time()
-        emb_model = "sentence-transformers/all-MiniLM-L6-v2"
-        vector_db = self.vector_store.__class__.__name__.replace("Store", "")
-        
-        # Initialize DB status
-        if not is_reindex:
-            cursor.execute(
-                '''INSERT INTO documents 
-                   (document_id, filename, status, upload_time, embedding_model, vector_db, chunk_count, processing_time, 
-                    version_number, is_latest, previous_version, storage_path, checksum_sha256)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
-                (document_id, filename, "Processing", time.time(), emb_model, vector_db, 0, 0.0, 
-                 version, is_latest, previous_version_id, storage_path, checksum)
-            )
-            # Mark previous version as NOT latest
-            if previous_version_id:
-                cursor.execute("UPDATE documents SET is_latest = 0 WHERE document_id = ?", (previous_version_id,))
                 
-            cursor.execute('''INSERT INTO audit_logs (log_id, document_id, action, status, timestamp) 
-                              VALUES (?, ?, ?, ?, ?)''', 
-                           (str(uuid.uuid4()), document_id, "UPLOAD", "Processing", time.time()))
-        else:
-            cursor.execute("UPDATE documents SET status = 'Processing' WHERE document_id = ?", (document_id,))
-            
-        conn.commit()
-        
-        try:
-            logging.info(f"[Indexing lifecycle] Indexing started for {document_id}")
-            # Load and chunk
-            loader = DocumentLoader()
-            chunker = Chunker(max_chars=1500, overlap_chars=200)
-            pages = loader.load_file(file_path)
-            page_count = len(pages)
-            
-            chunks = []
-            metadatas = []
-            chunk_ids = []
-            
-            # Combine all text for classification
-            full_text = []
-            
-            # Default empty strings for missing context
-            department = "Unknown"
-            plant = "Unknown"
-            status = "Indexed"
-            
-            for page in pages:
-                page_text = page['text']
-                full_text.append(page_text)
-                base_meta = {
-                    "source": filename, 
-                    "page_no": page.get('page_no', 1),
-                    "document_id": document_id,
-                    "version": version,
-                    "filename": filename,
-                    "department": department,
-                    "plant": plant,
-                    "uploaded_at": start_time,
-                    "is_latest": is_latest,
-                    "status": status
-                }
-                page_chunks_info = chunker.chunk_text_with_metadata(page_text, base_meta)
-                for info in page_chunks_info:
-                    chunks.append(info['text'])
-                    metadatas.append(info['metadata'])
-                    chunk_ids.append(info['chunk_id'])
-                    
-                    # Entity Extraction per chunk
-                    try:
-                        extracted_entities = self.entity_extractor.extract_from_text(info['text'])
-                        if extracted_entities:
-                            self.entity_extractor.save_entities(
-                                document_id=document_id,
-                                chunk_id=info['chunk_id'],
-                                page_number=base_meta['page_no'],
-                                section="Content",
-                                entities=extracted_entities
-                            )
-                    except Exception as e:
-                        logging.warning(f"Entity extraction failed for chunk {info['chunk_id']}: {str(e)}")
-            
-            # Document Classification
-            doc_class = "Unknown"
-            try:
-                doc_class = self.entity_extractor.classify_document("\n".join(full_text))
-            except Exception as e:
-                logging.warning(f"Document classification failed: {str(e)}")
-                    
-            # Index
-            if chunks:
-                self.indexer.index_chunks(chunks, metadatas=metadatas, chunk_ids=chunk_ids, document_id=document_id, filename=filename)
-                
-            processing_time = time.time() - start_time
-            logging.info(f"[Indexing lifecycle] Indexing completed for {document_id}")
-            
-            # Metadata update
+            start_time = time.time()
+            emb_model = "sentence-transformers/all-MiniLM-L6-v2"
+            vector_db = self.vector_store.__class__.__name__.replace("Store", "")
             meta = self.storage_service.get_metadata(storage_path)
             file_size = meta['size'] if meta else os.path.getsize(file_path)
             mime_type = meta['mime_type'] if meta else "application/pdf"
             
-            # Save to DB
-            cursor.execute(
-                '''UPDATE documents SET 
-                   status = 'Indexed', 
-                   chunk_count = ?, 
-                   processing_time = ?,
-                   storage_provider = ?,
-                   file_size = ?,
-                   page_count = ?,
-                   mime_type = ?,
-                   index_status = 'Success',
-                   last_indexed = ?,
-                   document_class = ?
-                   WHERE document_id = ?''',
-                (len(chunks), processing_time, self.storage_service.provider_name, 
-                 file_size, page_count, mime_type, time.time(), doc_class, document_id)
+            # 4. Save Version
+            version_id = doc_repo.add_version(
+                document_id=document_id,
+                checksum=checksum,
+                size=file_size,
+                mime=mime_type,
+                storage_path=storage_path,
+                chunk_count=0,
+                vector_collection=vector_db,
+                model=emb_model,
+                previous_version_id=prev_version_id
             )
-            cursor.execute('''INSERT INTO audit_logs (log_id, document_id, action, status, timestamp) 
-                              VALUES (?, ?, ?, ?, ?)''', 
-                           (str(uuid.uuid4()), document_id, "INDEX", "Success", time.time()))
+            
+            cursor.execute("UPDATE document_versions SET status = 'Processing' WHERE id = ?", (version_id,))
+            conn.commit()
+            audit_repo.log("UPLOAD", version_id, "Processing")
+            
+            # 5. Indexing
+            loader = DocumentLoader()
+            chunker = Chunker(max_chars=1500, overlap_chars=200)
+            pages = loader.load_file(file_path)
+            
+            chunks, metadatas, chunk_ids, full_text = [], [], [], []
+            for page in pages:
+                full_text.append(page['text'])
+                base_meta = {
+                    "source": filename, 
+                    "page_no": page.get('page_no', 1),
+                    "document_id": document_id,
+                    "version_id": version_id,
+                    "version": next_v,
+                    "is_latest": 1
+                }
+                for info in chunker.chunk_text_with_metadata(page['text'], base_meta):
+                    chunks.append(info['text'])
+                    metadatas.append(info['metadata'])
+                    chunk_ids.append(info['chunk_id'])
+                    
+                    cursor.execute("""
+                        INSERT INTO document_chunks (id, version_id, chunk_index, content, page_number, created_at, updated_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """, (info['chunk_id'], version_id, len(chunks), info['text'], base_meta['page_no'], time.time(), time.time()))
+
+            if chunks:
+                self.indexer.index_chunks(chunks, metadatas=metadatas, chunk_ids=chunk_ids, document_id=document_id, filename=filename)
+                
+            cursor.execute("""
+                UPDATE document_versions 
+                SET chunk_count = ?, page_count = ?, status = 'Indexed'
+                WHERE id = ?
+            """, (len(chunks), len(pages), version_id))
             conn.commit()
             
+            audit_repo.log("INDEX", version_id, "Success", execution_time_ms=int((time.time() - start_time)*1000))
+            return document_id
+            
         except Exception as e:
-            cursor.execute("UPDATE documents SET status = 'Failed', index_status = 'Error' WHERE document_id = ?", (document_id,))
-            cursor.execute('''INSERT INTO audit_logs (log_id, document_id, action, status, timestamp, details) 
-                              VALUES (?, ?, ?, ?, ?, ?)''', 
-                           (str(uuid.uuid4()), document_id, "INDEX", "Failed", time.time(), str(e)))
-            conn.commit()
-            logging.error(f"[Indexing lifecycle] Indexing failed for {document_id}: {str(e)}")
+            if 'version_id' in locals():
+                cursor = conn.cursor()
+                cursor.execute("UPDATE document_versions SET status = 'Failed' WHERE id = ?", (version_id,))
+                conn.commit()
+                audit_repo.log("INDEX", version_id, "Failed")
+            logging.error(f"[Indexing lifecycle] Indexing failed: {str(e)}")
             raise e
         finally:
             conn.close()
-            
-        return document_id
 
-    def get_all_documents(self, include_deleted: bool = False, include_old_versions: bool = False):
+    def get_all_documents(self):
         conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        query = "SELECT * FROM documents WHERE 1=1"
-        if not include_deleted:
-            query += " AND is_deleted = 0"
-        if not include_old_versions:
-            query += " AND is_latest = 1"
-            
-        query += " ORDER BY upload_time DESC"
-        cursor.execute(query)
-        rows = cursor.fetchall()
+        doc_repo = DocumentRepository(conn)
+        docs = doc_repo.list_latest_versions()
         conn.close()
-        return [dict(row) for row in rows]
+        # Map to V1 response format for API compatibility
+        return [{
+            "document_id": d["document_id"],
+            "filename": d["filename"],
+            "status": d["status"],
+            "file_size": d["file_size"],
+            "chunk_count": d["chunk_count"],
+            "upload_time": d["created_at"],
+            "storage_provider": d["storage_provider"],
+            "version_number": d["version_number"],
+            "is_latest": 1,
+            "is_deleted": d["is_deleted"]
+        } for d in docs]
 
     def get_document(self, document_id: str):
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM documents WHERE document_id = ?", (document_id,))
+        cursor.execute("""
+            SELECT d.id as document_id, d.filename, v.status, v.chunk_count, v.created_at as upload_time,
+                   v.embedding_model, v.vector_collection as vector_db, 0.0 as processing_time,
+                   v.storage_path, v.checksum as checksum_sha256, v.version_number, v.is_latest, v.is_deleted
+            FROM documents d
+            LEFT JOIN document_versions v ON d.id = v.document_id AND v.is_latest = 1
+            WHERE d.id = ?
+        """, (document_id,))
         row = cursor.fetchone()
         conn.close()
-        if row:
-            return dict(row)
-        return None
+        return dict(row) if row else None
 
     def delete_document(self, document_id: str):
-        doc = self.get_document(document_id)
-        if not doc:
-            return False
-            
-        logging.info(f"[Deletion] Soft deleting {document_id}")
-        
-        # Soft delete in DB
         conn = get_db_connection()
-        cursor = conn.cursor()
+        doc_repo = DocumentRepository(conn)
+        audit_repo = AuditRepository(conn)
         
-        # Check lock
-        if doc.get('is_locked', 0) == 1:
-            conn.close()
-            raise Exception("Document is locked and cannot be deleted.")
-            
-        # Check if indexing is running
-        if doc.get('status') == 'Processing':
-            conn.close()
-            raise Exception("Indexing is currently running. Cannot delete.")
-            
-        cursor.execute("UPDATE documents SET is_deleted = 1 WHERE document_id = ?", (document_id,))
-        cursor.execute('''INSERT INTO audit_logs (log_id, document_id, action, status, timestamp) 
-                          VALUES (?, ?, ?, ?, ?)''', 
-                       (str(uuid.uuid4()), document_id, "SOFT_DELETE", "Success", time.time()))
-        conn.commit()
-        conn.close()
-        
-        return True
-        
-    def reindex_document(self, document_id: str):
-        doc = self.get_document(document_id)
-        if not doc:
-            return None
-            
-        logging.info(f"[Reindex] Reindexing {document_id}")
-        
-        # 1. Read existing PDF
-        local_path = self.storage_service.get_local_path(doc.get('storage_path'))
-        if not local_path or not os.path.exists(local_path):
-            raise FileNotFoundError("Original file not found in storage")
-            
-        # 2. Delete old vectors
         try:
-            if hasattr(self.vector_store, 'delete_by_source'):
-                self.vector_store.delete_by_source(doc['filename'])
+            doc_repo.soft_delete_document(document_id)
+            audit_repo.log("SOFT_DELETE", document_id, "Success")
+            return True
         except Exception as e:
-            logging.warning(f"[Reindex] Warning: Vector delete failed - {e}")
-            
-        # 3. Re-ingest
-        return self.process_and_index(doc['filename'], local_path, document_id=document_id, is_reindex=True)
+            logging.error(f"Soft delete failed: {e}")
+            raise e
+        finally:
+            conn.close()
 

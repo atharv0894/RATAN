@@ -135,27 +135,18 @@ def restore_document(document_id: str):
         from app.database.sqlite import get_db_connection
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute("UPDATE documents SET is_deleted = 0 WHERE document_id = ?", (document_id,))
+        cursor.execute("UPDATE documents SET is_deleted = 0 WHERE id = ?", (document_id,))
+        cursor.execute("UPDATE document_versions SET is_deleted = 0 WHERE document_id = ?", (document_id,))
         import uuid
         import time
-        cursor.execute('''INSERT INTO audit_logs (log_id, document_id, action, status, timestamp) 
-                          VALUES (?, ?, ?, ?, ?)''', 
-                       (str(uuid.uuid4()), document_id, "RESTORE", "Success", time.time()))
+        from app.database.repositories import get_system_user
+        sys_user = get_system_user(cursor)
+        cursor.execute('''INSERT INTO audit_logs (id, user_id, endpoint, action, resource, status, created_at, updated_at) 
+                          VALUES (?, ?, ?, ?, ?, ?, ?, ?)''', 
+                       (str(uuid.uuid4()), sys_user, "RESTORE", "Success", document_id, "Success", time.time(), time.time()))
         conn.commit()
         conn.close()
         return {"message": "Document restored successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/{document_id}/reindex")
-def reindex_document(document_id: str):
-    doc_service = get_document_service()
-    try:
-        doc_id = doc_service.reindex_document(document_id)
-        if not doc_id:
-            raise HTTPException(status_code=404, detail="Document not found")
-        return {"message": "Document reindexed successfully", "document_id": doc_id}
-    except FileNotFoundError:
-        raise HTTPException(status_code=404, detail="Original file not found in storage")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))

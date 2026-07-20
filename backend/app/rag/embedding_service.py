@@ -4,7 +4,7 @@ from sentence_transformers import SentenceTransformer
 import torch
 
 class EmbeddingService:
-    def __init__(self, model_name="BAAI/bge-m3", device=None, batch_size=8):
+    def __init__(self, model_name="sentence-transformers/all-MiniLM-L6-v2", device=None, batch_size=8):
         if device is None:
             if torch.backends.mps.is_available():
                 device = "mps"

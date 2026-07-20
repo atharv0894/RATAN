@@ -41,7 +41,7 @@ def get_stats():
         documents=num_docs,
         chunks=vector_count,
         vector_database=db_type,
-        embedding_model="BAAI/bge-m3",
+        embedding_model="sentence-transformers/all-MiniLM-L6-v2",
         llm="GPT-OSS 120B",
         uptime=uptime
     )

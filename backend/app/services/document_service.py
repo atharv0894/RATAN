@@ -49,7 +49,7 @@ class DocumentService:
         start_time = time.time()
         
         # Determine model and db
-        emb_model = "BAAI/bge-m3"
+        emb_model = "sentence-transformers/all-MiniLM-L6-v2"
         vector_db = self.vector_store.__class__.__name__.replace("Store", "")
         
         document_id = document_id or str(uuid.uuid4())

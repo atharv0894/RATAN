@@ -37,6 +37,5 @@ def get_document_service():
     global document_service
     if document_service is None:
         from app.services.document_service import DocumentService
-        # Pass the singleton dependencies so DocumentService doesn't create them again
-        document_service = DocumentService(get_embedding_service(), get_vector_store())
+        document_service = DocumentService()
     return document_service

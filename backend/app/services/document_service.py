@@ -14,12 +14,24 @@ from app.exceptions import DuplicateDocumentError
 import logging
 
 class DocumentService:
-    def __init__(self, embedding_service=None, vector_store=None):
-        self.embedding_service = embedding_service or EmbeddingService()
-        self.vector_store = vector_store or VectorStore()
-        self.indexer = Indexer(self.embedding_service, self.vector_store)
+    def __init__(self):
         self.storage_service = StorageService()
         self.entity_extractor = EntityExtractor()
+
+    @property
+    def embedding_service(self):
+        from app.services.dependencies import get_embedding_service
+        return get_embedding_service()
+
+    @property
+    def vector_store(self):
+        from app.services.dependencies import get_vector_store
+        return get_vector_store()
+
+    @property
+    def indexer(self):
+        from app.rag.indexer import Indexer
+        return Indexer(self.embedding_service, self.vector_store)
 
     def _compute_checksum(self, file_path: str) -> str:
         sha256_hash = hashlib.sha256()

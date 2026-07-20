@@ -29,15 +29,8 @@ def get_health():
             # Skip network call for health check to guarantee <100ms response
             # and prevent Render from terminating the container due to timeout.
             vector_count = 0
-        elif db_type == "Chroma":
-            # pyrefly: ignore [missing-import]
-            import chromadb
-            client = chromadb.PersistentClient(path="./backend/app/storage/chroma")
-            collection = client.get_collection("ratan_documents")
-            vector_count = collection.count()
     except Exception:
         pass
-        
     return HealthResponse(
         status="ready",
         embedding_model="sentence-transformers/all-MiniLM-L6-v2",

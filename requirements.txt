@@ -53,7 +53,6 @@ sentence-transformers
 # =========================
 # VECTOR DATABASE
 # =========================
-chromadb
 qdrant-client
 
 # =========================

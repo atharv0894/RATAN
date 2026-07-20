@@ -36,6 +36,8 @@ The HTTP endpoints act as the interface:
 * **Environment Variables:** Never hardcode API keys in the `.py` files. Always use `os.environ.get()` to pull from `.env`.
 * **Testing:** Use the local `.py` scripts (like `test_pdf.py`) to validate LLM configurations without needing to boot the full FastAPI web server.
 * **Migrations:** If the SQLite schema in `app/database/sqlite.py` changes, you must manually run the cleanup services or recreate `ratan_registry.db`.
+* **Lazy Loading:** Never import PyTorch or `sentence-transformers` globally. Always import them inside getter methods to avoid massive RAM spikes on application startup.
+* **Thread Capping:** The `EmbeddingService` explicitly sets `torch.set_num_threads(1)` to ensure the ML pipeline survives on 512MB RAM cloud constraints.
 
 ## 🚀 Quick Start (Development)
 ```bash

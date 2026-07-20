@@ -27,14 +27,6 @@ To bridge the gap between static industrial documentation and dynamic, intellige
 
 ---
 
-## ⚡ Production & Low-Memory Optimizations
-This architecture has been specifically hardened for serverless and low-tier compute environments (e.g., Render Free Tier 512MB RAM):
-- **Lazy Initialization:** Heavy ML models and PyTorch are explicitly deferred from FastAPI startup to prevent deployment port-binding timeouts.
-- **Strict Thread Control:** PyTorch is forced to `torch.set_num_threads(1)` with restricted `OMP_NUM_THREADS=1` to ensure peak RAM usage remains safely below 512MB during heavy embedding generation.
-- **Micro-Routing:** SQLite-driven endpoints (`/stats`, `/documents`, `/entities`) bypass the ML orchestration layers entirely, yielding sub-millisecond response times without OOM risks.
-
----
-
 ## 🏗 Architecture Diagram
 
 ```mermaid
@@ -253,6 +245,11 @@ sequenceDiagram
 | **Groq Rate Limit (429)** | Native exponential backoff triggers. Thread sleeps and retries seamlessly up to 5 times. |
 | **Groq Outage (500/503)** | Exception caught. Traffic routed to Fallback `Gemini` client. |
 | **Missing API Keys** | Fast-fails on startup via strict `os.environ` validation in dependencies. |
+
+### 🧠 Production Memory Management
+The platform is aggressively optimized to run on tiny instances (like Render's 512MB RAM free tier).
+* **Lazy Dependency Injection:** Heavy Machine Learning libraries (like PyTorch and `sentence-transformers`) are deliberately removed from global and constructor imports. They are strictly lazy-loaded on the first `/chat` or `/documents/upload` request. This allows the Uvicorn ASGI server to bind to its port in milliseconds without OOM-crashing during health checks.
+* **Thread Capping:** PyTorch is dynamically hard-capped to `torch.set_num_threads(1)` and OpenMP/MKL thread counts are restricted to 1 via environment variables. This prevents PyTorch from allocating massive thread pools on low-core cloud instances, entirely preventing `502 Bad Gateway` Out-Of-Memory crashes.
 
 ---
 

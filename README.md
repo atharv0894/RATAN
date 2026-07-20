@@ -25,6 +25,14 @@ To bridge the gap between static industrial documentation and dynamic, intellige
 - **Multilingual Native Retrieval:** Query natively across Hindi, Marathi, and English.
 - **Transparent Citations:** Every generated fact is traced back to the exact chunk, page, and document.
 
+### 🚀 Core Capabilities
+- **RAG (Retrieval-Augmented Generation)** over heterogeneous industrial document corpora.
+- **Knowledge Graphs & Industrial Ontology Engineering** for deep relational queries.
+- **Computer Vision** (P&ID parsing, engineering drawing digitisation).
+- **OCR & Document Intelligence** processing both structured and unstructured formats.
+- **Quality Management System (QMS)** Integration for compliance tracking.
+- **Agentic AI** tailored for autonomous maintenance and compliance workflows.
+
 ---
 
 ## 🏗 Architecture Diagram

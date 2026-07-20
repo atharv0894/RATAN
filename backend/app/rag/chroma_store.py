@@ -9,12 +9,13 @@ class ChromaStore:
         
         try:
             self.collection = self.client.get_collection(name=self.collection_name)
-            if not self.collection.metadata or self.collection.metadata.get("embedding_model") != "BAAI/bge-m3":
-                self.reset_collection()
+            if not self.collection.metadata or self.collection.metadata.get("embedding_model") != "sentence-transformers/all-MiniLM-L6-v2":
+                self.client.delete_collection(name=self.collection_name)
+                raise Exception("Metadata mismatch")
         except Exception:
             self.collection = self.client.create_collection(
                 name=self.collection_name,
-                metadata={"hnsw:space": "cosine", "embedding_model": "BAAI/bge-m3", "embedding_dim": "1024"}
+                metadata={"hnsw:space": "cosine", "embedding_model": "sentence-transformers/all-MiniLM-L6-v2", "embedding_dim": "384"}
             )
             
     def reset_collection(self):
@@ -24,7 +25,7 @@ class ChromaStore:
             pass
         self.collection = self.client.create_collection(
             name=self.collection_name,
-            metadata={"hnsw:space": "cosine", "embedding_model": "BAAI/bge-m3", "embedding_dim": "1024"}
+            metadata={"hnsw:space": "cosine", "embedding_model": "sentence-transformers/all-MiniLM-L6-v2", "embedding_dim": "384"}
         )
         
     def upsert(self, ids: list[str], embeddings: list[list[float]], documents: list[str], metadatas: list[dict]):

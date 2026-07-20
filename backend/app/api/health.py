@@ -36,7 +36,7 @@ def get_health():
         
     return HealthResponse(
         status="ready",
-        embedding_model="BAAI/bge-m3",
+        embedding_model="sentence-transformers/all-MiniLM-L6-v2",
         vector_db=db_type,
         llm="GPT-OSS 120B",
         fallback_llm="Gemini 2.5 Flash",

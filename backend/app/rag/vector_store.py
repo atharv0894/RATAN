@@ -30,7 +30,7 @@ def get_vector_store(collection_name="ratan_documents", **kwargs):
                 return ChromaStore(collection_name=collection_name)
             else:
                 logging.error(f"Error: Qdrant connection failed in production: {e}")
-                sys.exit(1)
+                raise RuntimeError(f"Qdrant connection failed: {e}")
     else:
         # Default to Chroma
         from app.rag.chroma_store import ChromaStore

@@ -1,28 +1,11 @@
-# 🧠 RAG (Retrieval-Augmented Generation) Core Engine
+# Enterprise RAG Engine (`app/rag/`)
 
-> [!IMPORTANT]
-> This directory represents the heart of the RATAN Intelligence Platform. It orchestrates the semantic chunking, vector embedding, similarity retrieval, and LLM reasoning pipelines.
+This is the AI core of the RATAN platform. It orchestrates the entire Retrieval-Augmented Generation pipeline.
 
-## 🎯 Purpose and Responsibilities
-
-The `rag` module abstracts the complexities of the Hugging Face embedding models, Qdrant vector similarity algorithms, and the Groq/Gemini LLM generation routing. It ensures that incoming PDFs are correctly decomposed into semantically meaningful chunks and that user queries fetch the absolute most relevant context before reasoning.
-
-## 📄 Core Architecture
-
-| Component | Responsibility |
-|-----------|----------------|
-| `chunker.py` | Implements recursive character splitting with overlap (1500 chars / 200 overlap). Ensures markdown tables and sentences are never split in the middle. |
-| `document_loaders.py` | Uses `pdfplumber` to extract precise text, page numbers, and spatial layout data from raw PDFs. |
-| `embedding_service.py` | Wrapper for `all-MiniLM-L6-v2`. Projects text chunks into a 384-dimensional dense vector space optimized for semantic similarity. |
-| `qdrant_store.py` | The interface to the Qdrant Cloud Cluster. Handles indexing payloads and conducting Cosine Similarity searches. |
-| `retrieval_service.py` | Implements Maximal Marginal Relevance (MMR) reranking to maximize diversity and reduce duplicate context injected into the LLM. |
-| `rag_service.py` | The master orchestration class. Manages the primary (`openai/gpt-oss-120b`) and fallback (`gemini-2.5-flash`) LLM generation, injecting the retrieved context into a strict citation-enforced prompt. |
-| `prompt_builder.py` | (If utilized) Constructs the strict JSON-enforced instruction prompts. |
-
-## ⚙️ Data Flow
-
-1. **Ingestion Flow:** `document_loaders.py` -> `chunker.py` -> `embedding_service.py` -> `qdrant_store.py`
-2. **Chat Flow:** Query -> `embedding_service.py` -> `qdrant_store.py` -> `retrieval_service.py` -> `rag_service.py`
-
-## 🛡️ Resiliency & Fallback
-The `rag_service.py` features a self-healing LLM backoff mechanism. If the primary Groq model encounters a `429 Too Many Requests` (Rate Limit), the service naturally suspends and retries. If a hard `500/503` outage occurs, it instantly falls back to the Google Gemini Flash model, ensuring the end-user always receives an answer.
+## Sub-Modules
+- `parsers/`: Modular `ParserFactory` supporting PDF (PyMuPDF), DOCX (python-docx), CSV, MD, and TXT extraction.
+- `search/`: The **SearchEngine** (Strategy Pattern) which dynamically executes `SimilaritySearch`, `MMRSearch`, `MetadataSearch`, or `HybridSearch` based on query intent.
+- `chunker.py`: Page-aware semantic chunking logic.
+- `indexer.py`: Manages deduplication (SHA-256) and insertion into Qdrant.
+- `prompt_builder.py`: Constructs strict, JSON-enforced payloads for LLM grounding and citation linking.
+- `rag_service.py`: The orchestrator tying search and generative modeling (Groq/Gemini) together.

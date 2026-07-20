@@ -1,52 +1,48 @@
-# 🛠️ Backend Environment Directory
+# RATAN Backend Service
 
-This directory contains the entire Python backend for the RATAN Industrial Knowledge Intelligence Platform. 
+This is the core backend service for the RATAN (Retrieval-Augmented Technology for Asset Networks) platform. It provides a robust, scalable, and secure API for processing industrial documents and executing intelligent RAG queries.
 
-It is designed as a highly scalable, asynchronous application using **FastAPI**. It handles everything from document ingestion (PDF chunking and embedding) to the complex Retrieval-Augmented Generation (RAG) pipeline via Qdrant and GPT-OSS.
+## Technology Stack
+- **Framework**: FastAPI (Python 3.11+)
+- **Metadata Database**: SQLite (Normalized V2 Schema)
+- **Vector Database**: Qdrant Cloud
+- **Object Storage**: Backblaze B2 (S3 Compatible)
+- **Authentication**: PyJWT & Passlib (Bcrypt)
+- **Testing**: Pytest (90%+ Coverage target)
 
-## 🎯 Purpose
-The `backend/` folder isolates all server-side logic, environment configuration, database state, and vector models away from the client-side/frontend code. 
-
-## 📄 Key Files and Directories
-
-| Item | Type | Description |
-|------|------|-------------|
-| `app/` | Directory | The core FastAPI application containing all routes, RAG logic, and services. |
-| `storage/` | Directory | Local cache where incoming PDFs are securely buffered before being uploaded to Backblaze B2. |
-| `test_data/` | Directory | Contains sample industrial PDFs for validation and QA stress testing. |
-| `ratan_registry.db` | File | The SQLite database that tracks document metadata and processing statuses. |
-| `requirements.txt` | File | The `pip` dependency list detailing all required packages (FastAPI, Langchain, etc.). |
-| `.env` | File | Environment variables file containing critical API Keys (Groq, Gemini, Qdrant). **Do not commit this file.** |
-| `main.py` | File | (Located in `app/`) The entrypoint to boot the FastAPI server. |
-| `qa_runner.py` | File | High-level script for executing automated question-answer test suites. |
-
-## ⚙️ Internal Workflow
-When the server boots, it reads the `.env` file to establish connections to the external LLM providers (Groq/Gemini) and the Qdrant Cloud Vector Database.
-
-The HTTP endpoints act as the interface:
-1. **Uploads** are temporarily buffered in `storage/uploads/`, uploaded to Backblaze B2 Cloud Storage, vectorized, and pushed to Qdrant.
-2. **Queries** invoke the `app/rag/rag_service.py` engine, which fetches chunks from Qdrant and streams prompts to the LLM.
-
-## 🔧 Dependencies
-* **Python 3.11+** is highly recommended.
-* Ensure a virtual environment (`.venv`) is active before installing `requirements.txt`.
-* The application heavily depends on `langchain-google-genai` and `langchain-groq` for LLM orchestration.
-
-## 💡 Best Practices & Architecture
-* **Environment Variables:** Never hardcode API keys in the `.py` files. Always use `os.environ.get()` to pull from `.env`.
-* **Testing:** Use the local `.py` scripts (like `test_pdf.py`) to validate LLM configurations without needing to boot the full FastAPI web server.
-* **Migrations:** If the SQLite schema in `app/database/sqlite.py` changes, you must manually run the cleanup services or recreate `ratan_registry.db`.
-* **Lazy Loading:** Never import PyTorch or `sentence-transformers` globally. Always import them inside getter methods to avoid massive RAM spikes on application startup.
-* **Thread Capping:** The `EmbeddingService` explicitly sets `torch.set_num_threads(1)` to ensure the ML pipeline survives on 512MB RAM cloud constraints.
-* **Document Versioning:** Uploading a document with an identical checksum returns a 409 Duplicate error. Uploading with the same filename but different checksum automatically generates a new version (`v2.pdf`). Older versions remain securely archived and are excluded from Qdrant RAG searches.
-* **ACID Soft-Deletions:** The `DELETE /documents/{id}` API performs a soft-deletion by marking `is_deleted = 1`. This safely preserves history and allows for restoration via `POST /documents/{id}/restore`.
-* **Permanent Eradication:** True data destruction is restricted to the `CleanupService`. Its `eradicate_document` method executes a 2-phase commit with rollback logic across SQLite, Qdrant, and Backblaze B2 to prevent orphaned files or broken vectors.
-
-## 🚀 Quick Start (Development)
-```bash
-# 1. Activate the virtual environment
-source .venv/bin/activate
-
-# 2. Run the application
-uvicorn app.main:app --reload
+## Project Structure
+```text
+app/
+├── api/          # FastAPI Routers (auth, chat, documents, etc.)
+├── database/     # SQLite configuration and V2 Schema Definition
+├── entity/       # Entity Extraction pipelines
+├── exceptions.py # Global custom exception handlers
+├── main.py       # Application entrypoint & Middleware
+├── models/       # Pydantic core schemas
+├── rag/          # Core AI logic (Vector Store, Parsers, Strategy Engine, Reranker)
+├── services/     # Business logic layer (Auth, Documents, Dependencies)
+└── storage/      # Local and Cloud (Backblaze) storage providers
 ```
+
+## Setup & Execution
+
+1. **Install Dependencies**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+2. **Run Server**
+   ```bash
+   uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+   ```
+
+3. **Running Tests**
+   ```bash
+   pytest --cov=app tests/
+   ```
+
+## Security Posture
+- **JWT Authorization**: Enforced across all state-mutating endpoints.
+- **RBAC**: Protected by `RequireRole` decorators.
+- **Tenant Isolation**: Deeply integrated into SQL queries and Qdrant `WHERE` clauses to prevent horizontal privilege escalation.
+- **Audit Logging**: Tracks every request execution via middleware.

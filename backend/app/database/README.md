@@ -1,30 +1,12 @@
-# 🗄️ Database Management
+# Database Layer (`app/database/`)
 
-> [!CAUTION]
-> This module manages the relational state of the application. Do not confuse this with the Vector Database (Qdrant) which handles semantic search. This SQLite database acts as a traditional metadata registry.
+This module manages the local SQLite database which serves as the **Single Source of Truth** for the RATAN platform's relational metadata. 
 
-## 🎯 Purpose and Responsibilities
+**Note: Document text chunks and vectors are NEVER stored here. They belong in Qdrant.**
 
-The `database` directory isolates the relational state of the application. It ensures that when a user uploads a PDF, the UI can continuously poll the backend to see if the document is `Processing`, `Ready`, or `Failed`. 
+## Core Components
+- `schema.py`: Defines the V2 Enterprise normalized database schema, encompassing `users`, `roles`, `organizations`, `documents`, `document_versions`, and `audit_logs`.
+- `sqlite.py`: Handles connection pooling, thread-local connections (`check_same_thread=False`), and SQLite-specific pragmas like WAL mode for performance.
 
-## 📄 Schema
-
-The primary table is `documents`, defined in `sqlite.py`. It tracks:
-* `document_id` (Primary Key UUID)
-* `filename`
-* `status` (Processing, Indexed, Failed)
-* `upload_time`
-* `checksum_sha256` (Used for deduplication)
-* `file_size`, `mime_type`, `page_count`, `chunk_count`
-
-## ⚙️ Usage
-To interact with the database, services import the `get_db_connection` context manager. 
-```python
-from app.database.sqlite import get_db_connection
-
-conn = get_db_connection()
-conn.execute("SELECT * FROM documents")
-```
-
-> [!NOTE]
-> If you make changes to the schema inside `sqlite.py`, you will need to delete the `ratan_registry.db` file in the backend root so it regenerates on the next boot.
+## Migrations
+Migrations are handled declaratively via `migrations.py` to seamlessly upgrade V1 schemas to the current V2 Enterprise architecture without data loss.

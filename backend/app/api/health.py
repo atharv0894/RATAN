@@ -9,30 +9,33 @@ router = APIRouter()
 
 @router.get("/health", response_model=HealthResponse)
 def get_health():
-    from app.rag.vector_store import VectorStore
-    from app.services.document_service import DocumentService
-    
-    doc_service = DocumentService()
-    docs = doc_service.get_all_documents()
-    num_docs = len(docs)
-    
-    db_type = "Unknown"
-    vector_count = 0
-    old_stdout = sys.stdout
-    sys.stdout = io.StringIO()
+    num_docs = 0
     try:
-        vector_store = VectorStore()
-        store_class = vector_store.__class__.__name__
-        if store_class == "QdrantStore":
-            db_type = "Qdrant"
-            vector_count = vector_store.client.count(collection_name=vector_store.collection_name).count
-        elif store_class == "ChromaStore":
-            db_type = "Chroma"
-            vector_count = vector_store.collection.count()
+        from app.database.sqlite import get_db_connection
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) as count FROM documents")
+        row = cursor.fetchone()
+        num_docs = row["count"] if row else 0
+        conn.close()
     except Exception:
         pass
-    finally:
-        sys.stdout = old_stdout
+
+    db_type = os.environ.get("VECTOR_DB", "chroma").capitalize()
+    vector_count = 0
+    
+    try:
+        if db_type == "Qdrant":
+            from qdrant_client import QdrantClient
+            client = QdrantClient(url=os.environ.get("QDRANT_URL"), api_key=os.environ.get("QDRANT_API_KEY"), timeout=5.0)
+            vector_count = client.count(collection_name="ratan_documents").count
+        elif db_type == "Chroma":
+            import chromadb
+            client = chromadb.PersistentClient(path="./backend/app/storage/chroma")
+            collection = client.get_collection("ratan_documents")
+            vector_count = collection.count()
+    except Exception:
+        pass
         
     return HealthResponse(
         status="ready",

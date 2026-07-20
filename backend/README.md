@@ -35,7 +35,7 @@ The HTTP endpoints act as the interface:
 
 ## 💡 Best Practices
 * **Environment Variables:** Never hardcode API keys in the `.py` files. Always use `os.environ.get()` to pull from `.env`.
-* **Testing:** Use the local `.py` scripts (like `test_hindi_local.py`) to validate LLM configurations without needing to boot the full FastAPI web server.
+* **Testing:** Use the local `.py` scripts (like `test_pdf.py`) to validate LLM configurations without needing to boot the full FastAPI web server.
 * **Migrations:** If the SQLite schema in `app/database/sqlite.py` changes, you must manually run the cleanup services or recreate `ratan_registry.db`.
 
 ## 🚀 Quick Start (Development)

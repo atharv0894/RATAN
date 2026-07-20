@@ -6,15 +6,15 @@
 **RATAN** (Retrieval-Augmented Technical Analytics Network) is an enterprise-grade Industrial Knowledge Intelligence Platform. 
 
 ### Problem Statement
-Manufacturing and industrial enterprises possess vast repositories of technical manuals, annual reports, troubleshooting guides, and SOPs. This data is often stored in legacy formats, fragmented across multiple languages (English, Hindi, Marathi), and locked within dense, multi-column PDFs. Accessing precise technical information quickly during critical operational downtime is a significant bottleneck.
+Manufacturing and industrial enterprises possess vast repositories of technical manuals, annual reports, troubleshooting guides, and SOPs. This data is often stored in legacy formats, highly dense structures, and locked within complex, multi-column PDFs. Accessing precise technical information quickly during critical operational downtime is a significant bottleneck.
 
 ### Motivation
-To bridge the gap between static industrial documentation and dynamic, intelligent retrieval. Engineers and operators need a zero-shot, cross-lingual system that can read a manual in Marathi and answer complex troubleshooting queries in Hindi seamlessly.
+To bridge the gap between static industrial documentation and dynamic, intelligent retrieval. Engineers and operators need a highly optimized semantic search system that can read a dense technical manual and answer complex troubleshooting queries instantly.
 
 ### Objectives
 - Create a highly accurate Retrieval-Augmented Generation (RAG) system.
 - Support legacy industrial PDFs, including complex tables and financial reports.
-- Enable native cross-lingual semantic search (English ↔ Hindi ↔ Marathi).
+- Enable lightning-fast English semantic search with high-precision contextual retrieval.
 - Guarantee hallucination resistance by strictly enforcing document-grounded citations.
 
 ### Features
@@ -301,7 +301,7 @@ sequenceDiagram
 ---
 
 ## 🔮 Future Improvements & Limitations
-1. **OCR Preprocessing:** Legacy Hindi PDFs (encoded with non-Unicode fonts like Kruti Dev) cannot currently be parsed by `pdfplumber`. Integration with `Tesseract` or `Surya-OCR` is required for total legacy ingestion capability.
+1. **OCR Preprocessing:** Legacy scanned PDFs (encoded with non-standard fonts) cannot currently be parsed by `pdfplumber`. Integration with `Tesseract` or `Surya-OCR` is required for total legacy ingestion capability.
 2. **Frontend Integration:** The backend architecture is fully production-hardened. The next phase is mapping the provided API contracts to a React/Next.js frontend.
 3. **Session Memory:** Implementing a conversational buffer (e.g., `Redis` chat history) to allow multi-turn reasoning without requiring massive context window injections.
 

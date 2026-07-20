@@ -13,7 +13,6 @@ The `backend/` folder isolates all server-side logic, environment configuration,
 |------|------|-------------|
 | `app/` | Directory | The core FastAPI application containing all routes, RAG logic, and services. |
 | `storage/` | Directory | Local cache where incoming PDFs are securely buffered before being uploaded to Backblaze B2. |
-| `chroma_db/` | Directory | Legacy/fallback local vector storage (currently superseded by Qdrant). |
 | `test_data/` | Directory | Contains sample industrial PDFs for validation and QA stress testing. |
 | `ratan_registry.db` | File | The SQLite database that tracks document metadata and processing statuses. |
 | `requirements.txt` | File | The `pip` dependency list detailing all required packages (FastAPI, Langchain, etc.). |

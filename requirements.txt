@@ -42,6 +42,7 @@ pillow
 # OCR
 # =========================
 pytesseract
+pdfplumber
 
 # =========================
 # EMBEDDINGS
@@ -53,6 +54,7 @@ sentence-transformers
 # VECTOR DATABASE
 # =========================
 chromadb
+qdrant-client
 
 # =========================
 # KNOWLEDGE GRAPH
@@ -68,6 +70,9 @@ rank-bm25
 # LLM - GEMINI
 # =========================
 google-genai
+langchain-google-genai
+langchain-groq
+langchain-core
 
 # =========================
 # FILE / DATA UTILITIES

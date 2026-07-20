@@ -27,6 +27,14 @@ To bridge the gap between static industrial documentation and dynamic, intellige
 
 ---
 
+## ⚡ Production & Low-Memory Optimizations
+This architecture has been specifically hardened for serverless and low-tier compute environments (e.g., Render Free Tier 512MB RAM):
+- **Lazy Initialization:** Heavy ML models and PyTorch are explicitly deferred from FastAPI startup to prevent deployment port-binding timeouts.
+- **Strict Thread Control:** PyTorch is forced to `torch.set_num_threads(1)` with restricted `OMP_NUM_THREADS=1` to ensure peak RAM usage remains safely below 512MB during heavy embedding generation.
+- **Micro-Routing:** SQLite-driven endpoints (`/stats`, `/documents`, `/entities`) bypass the ML orchestration layers entirely, yielding sub-millisecond response times without OOM risks.
+
+---
+
 ## 🏗 Architecture Diagram
 
 ```mermaid

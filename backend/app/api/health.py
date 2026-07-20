@@ -26,10 +26,12 @@ def get_health():
     
     try:
         if db_type == "Qdrant":
+            # pyrefly: ignore [missing-import]
             from qdrant_client import QdrantClient
             client = QdrantClient(url=os.environ.get("QDRANT_URL"), api_key=os.environ.get("QDRANT_API_KEY"), timeout=5.0)
             vector_count = client.count(collection_name="ratan_documents").count
         elif db_type == "Chroma":
+            # pyrefly: ignore [missing-import]
             import chromadb
             client = chromadb.PersistentClient(path="./backend/app/storage/chroma")
             collection = client.get_collection("ratan_documents")

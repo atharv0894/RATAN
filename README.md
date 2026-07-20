@@ -251,6 +251,11 @@ The platform is aggressively optimized to run on tiny instances (like Render's 5
 * **Lazy Dependency Injection:** Heavy Machine Learning libraries (like PyTorch and `sentence-transformers`) are deliberately removed from global and constructor imports. They are strictly lazy-loaded on the first `/chat` or `/documents/upload` request. This allows the Uvicorn ASGI server to bind to its port in milliseconds without OOM-crashing during health checks.
 * **Thread Capping:** PyTorch is dynamically hard-capped to `torch.set_num_threads(1)` and OpenMP/MKL thread counts are restricted to 1 via environment variables. This prevents PyTorch from allocating massive thread pools on low-core cloud instances, entirely preventing `502 Bad Gateway` Out-Of-Memory crashes.
 
+### 🗄️ Enterprise Document Lifecycle
+* **Immutable Versioning:** Documents are never overwritten. Uploading a document with an identical checksum returns an HTTP 409 error. Uploading a document with the same filename but different contents generates a new, incrementally numbered version (e.g., `v2`). Only the latest versions are indexed for semantic RAG search.
+* **Soft Deletes:** Standard deletions via `DELETE /documents/{id}` are non-destructive soft deletes (marking `is_deleted = 1`), allowing full recovery via the `POST /documents/{id}/restore` endpoint.
+* **ACID Eradication:** True permanent deletion is handled solely by the `CleanupService`. It leverages a 2-phase commit with rollback capabilities to safely purge data across SQLite, Qdrant vectors, and Backblaze B2 storage without leaving orphaned artifacts.
+
 ---
 
 ## ⚙️ Environment Variables

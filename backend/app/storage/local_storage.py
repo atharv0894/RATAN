@@ -8,40 +8,40 @@ class LocalStorage:
     def __init__(self):
         pass
         
-    def save(self, file_obj, document_id: str, original_filename: str) -> str:
-        # Create storage layout based on document_id to avoid overwrite
-        # Generating a UUID filename as requested
-        ext = os.path.splitext(original_filename)[1]
-        file_name = f"{document_id}{ext}"
-        save_path = os.path.join(UPLOAD_DIR, file_name)
+    def save(self, file_obj, storage_path: str) -> str:
+        save_path = os.path.join(UPLOAD_DIR, storage_path)
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
         
-        # Read file_obj assuming it's a file-like object with .read()
         file_obj.seek(0)
         with open(save_path, "wb") as buffer:
             shutil.copyfileobj(file_obj, buffer)
             
         return save_path
 
-    def delete(self, document_id: str) -> bool:
-        path = self.get_local_path(document_id)
-        if path and os.path.exists(path):
+    def delete(self, storage_path: str) -> bool:
+        path = os.path.join(UPLOAD_DIR, storage_path)
+        if os.path.exists(path):
             os.remove(path)
+            # Try to remove empty dir
+            try:
+                os.rmdir(os.path.dirname(path))
+            except OSError:
+                pass
             return True
         return False
 
-    def exists(self, document_id: str) -> bool:
-        return self.get_local_path(document_id) is not None
+    def exists(self, storage_path: str) -> bool:
+        return os.path.exists(os.path.join(UPLOAD_DIR, storage_path))
 
-    def get_local_path(self, document_id: str):
-        # We need to find the file that starts with document_id
-        for f in os.listdir(UPLOAD_DIR):
-            if f.startswith(document_id):
-                return os.path.join(UPLOAD_DIR, f)
+    def get_local_path(self, storage_path: str):
+        path = os.path.join(UPLOAD_DIR, storage_path)
+        if os.path.exists(path):
+            return path
         return None
 
-    def get_metadata(self, document_id: str):
-        path = self.get_local_path(document_id)
-        if not path:
+    def get_metadata(self, storage_path: str):
+        path = os.path.join(UPLOAD_DIR, storage_path)
+        if not os.path.exists(path):
             return None
         return {
             "size": os.path.getsize(path),
@@ -50,7 +50,7 @@ class LocalStorage:
 
     def list_documents(self):
         docs = []
-        for f in os.listdir(UPLOAD_DIR):
-            if os.path.isfile(os.path.join(UPLOAD_DIR, f)):
-                docs.append(f)
+        for root, dirs, files in os.walk(UPLOAD_DIR):
+            for file in files:
+                docs.append(os.path.relpath(os.path.join(root, file), UPLOAD_DIR))
         return docs

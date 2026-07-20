@@ -25,13 +25,20 @@ async def upload_documents(file: UploadFile = File(...)):
         raise HTTPException(status_code=413, detail="File too large (max 50MB)")
             
     doc_service = get_document_service()
-    document_id = str(uuid.uuid4())
     
-    # Use StorageService to save the file
-    save_path = storage_service.save(file.file, document_id, file.filename)
+    import tempfile
+    import os
+    import shutil
+    
+    # Save to temp file
+    fd, temp_path = tempfile.mkstemp(suffix=".pdf")
+    os.close(fd)
     
     try:
-        doc_id = doc_service.process_and_index(file.filename, save_path, document_id=document_id)
+        with open(temp_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+            
+        doc_id = doc_service.process_and_index(file.filename, temp_path)
         return {
             "status": "uploaded",
             "document_id": doc_id,
@@ -39,7 +46,6 @@ async def upload_documents(file: UploadFile = File(...)):
             "duplicate": False
         }
     except DuplicateDocumentError as e:
-        storage_service.delete(document_id)
         return {
             "status": "already_exists",
             "document_id": e.document_id,
@@ -49,13 +55,14 @@ async def upload_documents(file: UploadFile = File(...)):
             "message": "Document already indexed. Using existing document."
         }
     except QdrantUploadError as e:
-        storage_service.delete(document_id)
         raise HTTPException(status_code=500, detail=e.error_details)
     except Exception as e:
         import traceback
         traceback.print_exc()
-        storage_service.delete(document_id)
         raise HTTPException(status_code=500, detail={"filename": file.filename, "error": str(e), "status": "Failed"})
+    finally:
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
 
 @router.get("")
 def list_documents():
@@ -70,7 +77,10 @@ def list_documents():
             "pages": d.get("page_count", 0),
             "chunks": d["chunk_count"],
             "upload_date": d["upload_time"],
-            "storage_provider": d.get("storage_provider", "local")
+            "storage_provider": d.get("storage_provider", "local"),
+            "version_number": d.get("version_number", 1),
+            "is_latest": bool(d.get("is_latest", 1)),
+            "is_deleted": bool(d.get("is_deleted", 0))
         } for d in docs
     ]
 
@@ -89,7 +99,12 @@ def get_document(document_id: str):
         "upload_time": doc["upload_time"],
         "embedding_model": doc["embedding_model"],
         "vector_db": doc["vector_db"],
-        "processing_time": doc["processing_time"]
+        "processing_time": doc["processing_time"],
+        "storage_path": doc.get("storage_path"),
+        "checksum_sha256": doc.get("checksum_sha256"),
+        "version_number": doc.get("version_number", 1),
+        "is_latest": bool(doc.get("is_latest", 1)),
+        "is_deleted": bool(doc.get("is_deleted", 0))
     }
 
 @router.delete("/{document_id}")
@@ -99,7 +114,36 @@ def delete_document(document_id: str):
         success = doc_service.delete_document(document_id)
         if not success:
             raise HTTPException(status_code=404, detail="Document not found")
-        return {"message": "Document deleted successfully"}
+        return {"message": "Document soft-deleted successfully"}
+    except Exception as e:
+        error_msg = str(e)
+        if "locked" in error_msg.lower() or "indexing is currently running" in error_msg.lower():
+            raise HTTPException(status_code=409, detail=error_msg)
+        raise HTTPException(status_code=500, detail=error_msg)
+
+@router.post("/{document_id}/restore")
+def restore_document(document_id: str):
+    doc_service = get_document_service()
+    doc = doc_service.get_document(document_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+        
+    if not doc.get('is_deleted'):
+        return {"message": "Document is not deleted"}
+        
+    try:
+        from app.database.sqlite import get_db_connection
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("UPDATE documents SET is_deleted = 0 WHERE document_id = ?", (document_id,))
+        import uuid
+        import time
+        cursor.execute('''INSERT INTO audit_logs (log_id, document_id, action, status, timestamp) 
+                          VALUES (?, ?, ?, ?, ?)''', 
+                       (str(uuid.uuid4()), document_id, "RESTORE", "Success", time.time()))
+        conn.commit()
+        conn.close()
+        return {"message": "Document restored successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

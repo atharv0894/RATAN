@@ -17,12 +17,17 @@ class DocumentResponse(BaseModel):
     filename: str
     status: str
     chunks: int
+    version_number: int = 1
+    is_latest: bool = True
+    is_deleted: bool = False
     
 class DocumentDetailResponse(DocumentResponse):
     upload_time: float
     embedding_model: str
     vector_db: str
     processing_time: float
+    storage_path: str = None
+    checksum_sha256: str = None
 
 class ChatResponse(BaseModel):
     answer: str

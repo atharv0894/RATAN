@@ -28,15 +28,16 @@ class B2Storage:
             logging.error(f"Failed to authenticate with B2: {e}")
             self.bucket = None
 
-    def save(self, file_obj, document_id: str, original_filename: str) -> str:
+    def save(self, file_obj, storage_path: str) -> str:
         if not self.bucket:
             raise Exception("B2 bucket is not initialized.")
             
-        ext = os.path.splitext(original_filename)[1]
-        file_name = f"{document_id}{ext}"
+        file_name = storage_path
         
         # Save locally first as a cache/temp
         save_path = os.path.join(UPLOAD_DIR, file_name)
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        
         file_obj.seek(0)
         with open(save_path, "wb") as buffer:
             shutil.copyfileobj(file_obj, buffer)
@@ -54,57 +55,61 @@ class B2Storage:
             
         return save_path
 
-    def delete(self, document_id: str) -> bool:
+    def delete(self, storage_path: str) -> bool:
         if not self.bucket:
             return False
             
-        file_name = self._get_filename_from_id(document_id)
-        if not file_name:
-            return False
-            
         # Delete from local cache
-        path = os.path.join(UPLOAD_DIR, file_name)
+        path = os.path.join(UPLOAD_DIR, storage_path)
         if os.path.exists(path):
             os.remove(path)
+            try:
+                os.rmdir(os.path.dirname(path))
+            except OSError:
+                pass
             
         # Delete from B2
         try:
-            file_version = self.bucket.get_file_info_by_name(file_name)
-            self.b2_api.delete_file_version(file_version.id_, file_name)
+            file_version = self.bucket.get_file_info_by_name(storage_path)
+            self.b2_api.delete_file_version(file_version.id_, storage_path)
             return True
         except Exception as e:
             logging.error(f"B2 Delete error: {e}")
             return False
 
-    def exists(self, document_id: str) -> bool:
-        return self._get_filename_from_id(document_id) is not None
+    def exists(self, storage_path: str) -> bool:
+        if not self.bucket:
+            return False
+        try:
+            self.bucket.get_file_info_by_name(storage_path)
+            return True
+        except Exception:
+            return False
 
-    def get_local_path(self, document_id: str):
+    def get_local_path(self, storage_path: str):
         # First check local cache
-        for f in os.listdir(UPLOAD_DIR):
-            if f.startswith(document_id):
-                return os.path.join(UPLOAD_DIR, f)
+        path = os.path.join(UPLOAD_DIR, storage_path)
+        if os.path.exists(path):
+            return path
                 
         # If not local, we would need to download it from B2
-        file_name = self._get_filename_from_id(document_id)
-        if file_name and self.bucket:
-            download_path = os.path.join(UPLOAD_DIR, file_name)
+        if self.bucket:
             try:
-                file_download = self.bucket.download_file_by_name(file_name)
-                file_download.save_to(download_path)
-                return download_path
+                os.makedirs(os.path.dirname(path), exist_ok=True)
+                file_download = self.bucket.download_file_by_name(storage_path)
+                file_download.save_to(path)
+                return path
             except Exception as e:
                 logging.error(f"Failed to download from B2: {e}")
                 return None
         return None
 
-    def get_metadata(self, document_id: str):
-        file_name = self._get_filename_from_id(document_id)
-        if not file_name or not self.bucket:
+    def get_metadata(self, storage_path: str):
+        if not self.bucket:
             return None
             
         try:
-            file_info = self.bucket.get_file_info_by_name(file_name)
+            file_info = self.bucket.get_file_info_by_name(storage_path)
             return {
                 "size": file_info.content_length,
                 "mime_type": file_info.content_type
@@ -116,18 +121,6 @@ class B2Storage:
         if not self.bucket:
             return []
         docs = []
-        for file_version, _ in self.bucket.ls():
+        for file_version, _ in self.bucket.ls(folder_to_list=""):
             docs.append(file_version.file_name)
         return docs
-        
-    def _get_filename_from_id(self, document_id: str):
-        # Look in local first
-        for f in os.listdir(UPLOAD_DIR):
-            if f.startswith(document_id):
-                return f
-        # Otherwise query B2 prefix
-        if self.bucket:
-            for file_version, _ in self.bucket.ls(folder_to_list=""):
-                if file_version.file_name.startswith(document_id):
-                    return file_version.file_name
-        return None

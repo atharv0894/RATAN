@@ -32,12 +32,15 @@ The HTTP endpoints act as the interface:
 * Ensure a virtual environment (`.venv`) is active before installing `requirements.txt`.
 * The application heavily depends on `langchain-google-genai` and `langchain-groq` for LLM orchestration.
 
-## 💡 Best Practices
+## 💡 Best Practices & Architecture
 * **Environment Variables:** Never hardcode API keys in the `.py` files. Always use `os.environ.get()` to pull from `.env`.
 * **Testing:** Use the local `.py` scripts (like `test_pdf.py`) to validate LLM configurations without needing to boot the full FastAPI web server.
 * **Migrations:** If the SQLite schema in `app/database/sqlite.py` changes, you must manually run the cleanup services or recreate `ratan_registry.db`.
 * **Lazy Loading:** Never import PyTorch or `sentence-transformers` globally. Always import them inside getter methods to avoid massive RAM spikes on application startup.
 * **Thread Capping:** The `EmbeddingService` explicitly sets `torch.set_num_threads(1)` to ensure the ML pipeline survives on 512MB RAM cloud constraints.
+* **Document Versioning:** Uploading a document with an identical checksum returns a 409 Duplicate error. Uploading with the same filename but different checksum automatically generates a new version (`v2.pdf`). Older versions remain securely archived and are excluded from Qdrant RAG searches.
+* **ACID Soft-Deletions:** The `DELETE /documents/{id}` API performs a soft-deletion by marking `is_deleted = 1`. This safely preserves history and allows for restoration via `POST /documents/{id}/restore`.
+* **Permanent Eradication:** True data destruction is restricted to the `CleanupService`. Its `eradicate_document` method executes a 2-phase commit with rollback logic across SQLite, Qdrant, and Backblaze B2 to prevent orphaned files or broken vectors.
 
 ## 🚀 Quick Start (Development)
 ```bash

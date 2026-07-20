@@ -1,7 +1,8 @@
 import sqlite3
 import os
 
-DB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "ratan_registry.db")
+default_db_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "ratan_registry.db")
+DB_PATH = os.environ.get("RATAN_DB_PATH", default_db_path)
 
 def get_db_connection():
     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
@@ -29,7 +30,13 @@ def init_db():
             mime_type TEXT,
             index_status TEXT,
             last_indexed REAL,
-            document_class TEXT DEFAULT 'Unknown'
+            document_class TEXT DEFAULT 'Unknown',
+            version_number INTEGER DEFAULT 1,
+            uploaded_by TEXT DEFAULT 'system',
+            previous_version TEXT,
+            is_latest INTEGER DEFAULT 1,
+            is_deleted INTEGER DEFAULT 0,
+            is_locked INTEGER DEFAULT 0
         )
     ''')
     
@@ -47,6 +54,23 @@ def init_db():
         )
     ''')
     
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS audit_logs (
+            log_id TEXT PRIMARY KEY,
+            document_id TEXT NOT NULL,
+            action TEXT NOT NULL,
+            status TEXT NOT NULL,
+            timestamp REAL NOT NULL,
+            details TEXT
+        )
+    ''')
+    
+    # Indexes for performance
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_doc_filename ON documents(filename)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_doc_checksum ON documents(checksum_sha256)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_doc_status ON documents(status)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_ent_val ON entities(entity_value)")
+    
     # Quick migration for existing tables
     for col, default in [
         ("storage_provider", "'local'"),
@@ -57,7 +81,13 @@ def init_db():
         ("mime_type", "NULL"),
         ("index_status", "NULL"),
         ("last_indexed", "NULL"),
-        ("document_class", "'Unknown'")
+        ("document_class", "'Unknown'"),
+        ("version_number", "1"),
+        ("uploaded_by", "'system'"),
+        ("previous_version", "NULL"),
+        ("is_latest", "1"),
+        ("is_deleted", "0"),
+        ("is_locked", "0")
     ]:
         try:
             cursor.execute(f"ALTER TABLE documents ADD COLUMN {col} TEXT DEFAULT {default}")

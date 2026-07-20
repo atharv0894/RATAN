@@ -69,15 +69,20 @@ Query: {query}"""
         all_retrieved = []
         seen_chunks = set()
         
+        # Force searching only the latest versions of documents
+        final_where = {"is_latest": 1}
+        if where:
+            final_where.update(where)
+        
         if debug:
             logging.info("\n[RETRIEVAL DEBUG]")
             logging.info(f"Original Query: {query}")
             for i, sq in enumerate(sub_queries):
                 if sq != query:
                     logging.info(f"Sub-query {i}: {sq}")
-            
+                    
         for sq in sub_queries:
-            chunks = self.retrieval_service.retrieve(sq, top_k=6, fetch_k=20, lambda_mult=0.6, where=where)
+            chunks = self.retrieval_service.retrieve(sq, top_k=6, fetch_k=20, lambda_mult=0.6, where=final_where)
             for chunk in chunks:
                 chunk_id = chunk.get('chunk_id')
                 if chunk_id not in seen_chunks:

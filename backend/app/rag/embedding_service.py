@@ -2,6 +2,12 @@
 from sentence_transformers import SentenceTransformer
 # pyrefly: ignore [missing-import]
 import torch
+import os
+
+# Drastically reduce RAM footprint for the 512MB Render instance
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+torch.set_num_threads(1)
 
 class EmbeddingService:
     def __init__(self, model_name="sentence-transformers/all-MiniLM-L6-v2", device=None, batch_size=8):

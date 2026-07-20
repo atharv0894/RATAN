@@ -11,15 +11,22 @@ from langchain_groq import ChatGroq
 # pyrefly: ignore [missing-import]
 from langchain_core.messages import SystemMessage, HumanMessage
 
-from app.rag.retrieval_service import RetrievalService
+from app.rag.search.engine import SearchEngine
+from app.rag.vector_store import VectorStore
+from app.rag.embedding_service import EmbeddingService
 from app.rag.prompt_builder import PromptBuilder
 from app.rag.query_analyzer import QueryAnalyzer
 from app.rag.reranker import Reranker
 from app.rag.context_builder import ContextBuilder
 
 class RAGService:
-    def __init__(self, retrieval_service=None):
-        self.retrieval_service = retrieval_service or RetrievalService()
+    def __init__(self, search_engine=None):
+        if search_engine is None:
+            embedding_service = EmbeddingService()
+            vector_store = VectorStore()
+            self.search_engine = SearchEngine(embedding_service, vector_store)
+        else:
+            self.search_engine = search_engine
         
         groq_api_key = os.environ.get("GROQ_API_KEY")
         if not groq_api_key:

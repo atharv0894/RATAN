@@ -60,6 +60,7 @@ def run_migrations(conn: sqlite3.Connection):
     legacy_docs = cursor.fetchall()
     
     doc_map = {}
+    version_counter = {}
     
     for ldoc in legacy_docs:
         ldoc_dict = dict(ldoc)
@@ -67,6 +68,7 @@ def run_migrations(conn: sqlite3.Connection):
         if filename not in doc_map:
             doc_id = str(uuid.uuid4())
             doc_map[filename] = doc_id
+            version_counter[doc_id] = 1
             
             deleted_at = ldoc_dict['upload_time'] if ldoc_dict.get('is_deleted', 0) else None
             
@@ -79,23 +81,24 @@ def run_migrations(conn: sqlite3.Connection):
                 doc_id, filename, filename, system_user_id, system_org_id, system_plant_id, system_dept_id,
                 ldoc_dict['upload_time'], ldoc_dict['upload_time'], deleted_at, 'Active'
             ))
-        
-        doc_id = doc_map[filename]
+        else:
+            doc_id = doc_map[filename]
+            version_counter[doc_id] += 1
         
         # Insert Version
         version_id = ldoc_dict['document_id']
         cursor.execute("""
-            INSERT INTO document_versions (
+            INSERT OR IGNORE INTO document_versions (
                 id, document_id, version_number, checksum, storage_path, collection_name,
                 uploaded_by, uploaded_at, mime_type, file_size, embedding_model, chunk_count,
                 vector_count, is_latest, status, is_locked
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
-            version_id, doc_id, ldoc_dict.get('version_number', 1), ldoc_dict.get('checksum_sha256', ''), 
+            version_id, doc_id, version_counter[doc_id], ldoc_dict.get('checksum_sha256', ''), 
             ldoc_dict.get('storage_path', ''), ldoc_dict.get('vector_db', 'default'),
             system_user_id, ldoc_dict['upload_time'],
-            ldoc_dict.get('mime_type', 'application/pdf'), ldoc_dict.get('file_size', 0), ldoc_dict['embedding_model'],
-            ldoc_dict['chunk_count'], ldoc_dict['chunk_count'], ldoc_dict.get('is_latest', 1), ldoc_dict['status'], ldoc_dict.get('is_locked', 0)
+            ldoc_dict.get('mime_type', 'application/pdf'), ldoc_dict.get('file_size', 0), ldoc_dict.get('embedding_model', 'default'),
+            ldoc_dict.get('chunk_count', 0), ldoc_dict.get('chunk_count', 0), ldoc_dict.get('is_latest', 1), ldoc_dict.get('status', 'Active'), ldoc_dict.get('is_locked', 0)
         ))
 
     # 5. Migrate Audit Logs

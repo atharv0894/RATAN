@@ -62,12 +62,13 @@ def run_migrations(conn: sqlite3.Connection):
     doc_map = {}
     
     for ldoc in legacy_docs:
-        filename = ldoc['filename']
+        ldoc_dict = dict(ldoc)
+        filename = ldoc_dict['filename']
         if filename not in doc_map:
             doc_id = str(uuid.uuid4())
             doc_map[filename] = doc_id
             
-            deleted_at = ldoc['upload_time'] if ldoc.get('is_deleted', 0) else None
+            deleted_at = ldoc_dict['upload_time'] if ldoc_dict.get('is_deleted', 0) else None
             
             cursor.execute("""
                 INSERT INTO documents (
@@ -76,13 +77,13 @@ def run_migrations(conn: sqlite3.Connection):
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 doc_id, filename, filename, system_user_id, system_org_id, system_plant_id, system_dept_id,
-                ldoc['upload_time'], ldoc['upload_time'], deleted_at, 'Active'
+                ldoc_dict['upload_time'], ldoc_dict['upload_time'], deleted_at, 'Active'
             ))
         
         doc_id = doc_map[filename]
         
         # Insert Version
-        version_id = ldoc['document_id']
+        version_id = ldoc_dict['document_id']
         cursor.execute("""
             INSERT INTO document_versions (
                 id, document_id, version_number, checksum, storage_path, collection_name,
@@ -90,11 +91,11 @@ def run_migrations(conn: sqlite3.Connection):
                 vector_count, is_latest, status, is_locked
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
-            version_id, doc_id, ldoc.get('version_number', 1), ldoc.get('checksum_sha256', ''), 
-            ldoc.get('storage_path', ''), ldoc.get('vector_db', 'default'),
-            system_user_id, ldoc['upload_time'],
-            ldoc.get('mime_type', 'application/pdf'), ldoc.get('file_size', 0), ldoc['embedding_model'],
-            ldoc['chunk_count'], ldoc['chunk_count'], ldoc.get('is_latest', 1), ldoc['status'], ldoc.get('is_locked', 0)
+            version_id, doc_id, ldoc_dict.get('version_number', 1), ldoc_dict.get('checksum_sha256', ''), 
+            ldoc_dict.get('storage_path', ''), ldoc_dict.get('vector_db', 'default'),
+            system_user_id, ldoc_dict['upload_time'],
+            ldoc_dict.get('mime_type', 'application/pdf'), ldoc_dict.get('file_size', 0), ldoc_dict['embedding_model'],
+            ldoc_dict['chunk_count'], ldoc_dict['chunk_count'], ldoc_dict.get('is_latest', 1), ldoc_dict['status'], ldoc_dict.get('is_locked', 0)
         ))
 
     # 5. Migrate Audit Logs

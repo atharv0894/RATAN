@@ -2,7 +2,7 @@ import uuid
 import time
 from fastapi import APIRouter, Depends, Request
 from fastapi.security import OAuth2PasswordRequestForm
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, Field
 from app.services.auth_service import AuthService
 from app.services.session_service import SessionService
 from app.api.responses import APISuccessResponse
@@ -14,7 +14,7 @@ router = APIRouter()
 
 class OrgRegisterRequest(BaseModel):
     org_name: str
-    admin_email: EmailStr
+    admin_email: str = Field(pattern=r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$")
     admin_password: str
     admin_name: str
 
@@ -31,7 +31,7 @@ class PasswordChangeRequest(BaseModel):
     new_password: str
 
 class ForgotPasswordRequest(BaseModel):
-    email: EmailStr
+    email: str = Field(pattern=r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$")
 
 class ResetPasswordRequest(BaseModel):
     token: str

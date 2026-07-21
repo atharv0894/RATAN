@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 # Load environment variables FIRST before importing any internal modules
 load_dotenv()
 
-from app.api import health, documents, chat, stats, entities, cleanup, auth
+from app.api import health, documents, chat, stats, entities, cleanup, auth, users, organizations, plants, departments
 # pyrefly: ignore [missing-import]
 from fastapi.responses import JSONResponse
 import logging
@@ -41,7 +41,7 @@ async def audit_log_middleware(request: Request, call_next):
     
     # In production, we write this to `audit_logs` table via async tasks
     # For now, structured standard out
-    logging.info(f"AUDIT | {request.method} {request.url.path} | Status: {response.status_code} | Latency: {process_time:.2f}ms | IP: {request.client.host}")
+    logging.info(f"AUDIT | {request.method} {request.url.path} | Status: {response.status_code} | Latency: {process_time:.2f}ms | IP: {request.client.host if request.client else 'unknown'}")
     
     response.headers["X-Process-Time"] = str(process_time)
     return response
@@ -69,6 +69,10 @@ async def validation_exception_handler(request, exc: RequestValidationError):
 # Include all API routers
 app.include_router(health.router, prefix="", tags=["health"])
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
+app.include_router(users.router, prefix="/api/v1/users", tags=["users"])
+app.include_router(organizations.router, prefix="/api/v1/organizations", tags=["organizations"])
+app.include_router(plants.router, prefix="/api/v1/plants", tags=["plants"])
+app.include_router(departments.router, prefix="/api/v1/departments", tags=["departments"])
 app.include_router(documents.router, prefix="/api/v1/documents", tags=["documents"])
 app.include_router(chat.router, prefix="/api/v1/chat", tags=["chat"])
 app.include_router(stats.router, prefix="/api/v1/stats", tags=["stats"])

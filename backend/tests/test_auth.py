@@ -1,0 +1,56 @@
+import pytest
+from fastapi.testclient import TestClient
+from app.main import app
+
+client = TestClient(app)
+
+def test_register_organization():
+    response = client.post(
+        "/api/v1/auth/register",
+        json={
+            "org_name": "Test Org",
+            "admin_email": "admin@testorg.com",
+            "admin_password": "SecurePassword123!",
+            "admin_name": "Admin User"
+        }
+    )
+    assert response.status_code == 200
+    assert response.json()["success"] is True
+
+def test_login():
+    response = client.post(
+        "/api/v1/auth/login",
+        data={
+            "username": "admin@testorg.com",
+            "password": "SecurePassword123!"
+        }
+    )
+    assert response.status_code == 200
+    assert "access_token" in response.json()["data"]
+    assert "refresh_token" in response.json()["data"]
+
+def test_get_me():
+    # 1. Login
+    login_response = client.post(
+        "/api/v1/auth/login",
+        data={
+            "username": "admin@testorg.com",
+            "password": "SecurePassword123!"
+        }
+    )
+    token = login_response.json()["data"]["access_token"]
+    
+    # 2. Get Me
+    response = client.get(
+        "/api/v1/auth/me",
+        headers={"Authorization": f"Bearer {token}"}
+    )
+    assert response.status_code == 200
+    assert response.json()["data"]["email"] == "admin@testorg.com"
+
+def test_forgot_password():
+    response = client.post(
+        "/api/v1/auth/forgot-password",
+        json={"email": "admin@testorg.com"}
+    )
+    assert response.status_code == 200

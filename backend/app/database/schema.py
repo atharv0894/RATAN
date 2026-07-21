@@ -62,6 +62,8 @@ def create_schema(cursor: sqlite3.Cursor):
         CREATE TABLE IF NOT EXISTS users (
             id TEXT PRIMARY KEY,
             org_id TEXT NOT NULL,
+            plant_id TEXT,
+            department_id TEXT,
             role_id TEXT NOT NULL,
             email TEXT UNIQUE NOT NULL,
             password_hash TEXT NOT NULL,
@@ -71,6 +73,8 @@ def create_schema(cursor: sqlite3.Cursor):
             is_deleted INTEGER DEFAULT 0,
             status TEXT DEFAULT 'Active',
             FOREIGN KEY (org_id) REFERENCES organizations(id) ON DELETE RESTRICT,
+            FOREIGN KEY (plant_id) REFERENCES plants(id) ON DELETE SET NULL,
+            FOREIGN KEY (department_id) REFERENCES departments(id) ON DELETE SET NULL,
             FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE RESTRICT
         )
     ''')
@@ -221,6 +225,35 @@ def create_schema(cursor: sqlite3.Cursor):
         )
     ''')
     
+    # 16. User Sessions
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS user_sessions (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            refresh_token TEXT UNIQUE NOT NULL,
+            ip_address TEXT,
+            device_info TEXT,
+            expires_at REAL NOT NULL,
+            last_activity REAL NOT NULL,
+            created_at REAL NOT NULL,
+            is_revoked INTEGER DEFAULT 0,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+    ''')
+
+    # 17. Password Reset Tokens
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS password_reset_tokens (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            token TEXT UNIQUE NOT NULL,
+            expires_at REAL NOT NULL,
+            created_at REAL NOT NULL,
+            is_used INTEGER DEFAULT 0,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+    ''')
+
     # Indexes for performance
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_doc_filename ON documents(filename)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_doc_deleted_at ON documents(deleted_at)")
@@ -230,3 +263,5 @@ def create_schema(cursor: sqlite3.Cursor):
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_chat_msg_session ON chat_messages(session_id)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_jobs_status ON processing_jobs(status)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_sessions_user ON user_sessions(user_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_sessions_token ON user_sessions(refresh_token)")

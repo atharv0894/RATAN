@@ -5,40 +5,45 @@ search_engine = None
 rag_service = None
 document_service = None
 
-from fastapi import Depends
+from fastapi import Depends, Request
 from fastapi.security import OAuth2PasswordBearer
 from app.services.auth_service import AuthService
 from app.exceptions import AuthenticationError, AuthorizationError
-from app.database.sqlite import get_db
+from app.database.sqlite import get_db_connection
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/login")
 
-def get_current_user(token: str = Depends(oauth2_scheme), db=Depends(get_db)):
+def get_current_user(token: str = Depends(oauth2_scheme)):
     payload = AuthService.decode_token(token)
     if payload.get("type") != "access":
-        raise AuthenticationError("Invalid token type.")
+        raise AuthenticationError("Invalid token type. Expected access token.")
         
     user_id = payload.get("sub")
     if not user_id:
         raise AuthenticationError("Token missing user ID.")
         
-    cursor = db.cursor()
-    cursor.execute("SELECT id, org_id, role_id, email, full_name, status FROM users WHERE id = ?", (user_id,))
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT u.id, u.org_id, u.plant_id, u.department_id, u.email, u.full_name, u.status, r.name as role
+        FROM users u 
+        JOIN roles r ON u.role_id = r.id
+        WHERE u.id = ?
+    """, (user_id,))
     user = cursor.fetchone()
+    conn.close()
     
     if not user:
         raise AuthenticationError("User not found.")
     if user['status'] != 'Active':
         raise AuthenticationError("User is inactive or deleted.")
         
-    cursor.execute("SELECT name FROM roles WHERE id = ?", (user['role_id'],))
-    role = cursor.fetchone()
-    role_name = role['name'] if role else "User"
-        
     return {
         "id": user['id'],
         "org_id": user['org_id'],
-        "role": role_name,
+        "plant_id": user['plant_id'],
+        "department_id": user['department_id'],
+        "role": user['role'],
         "email": user['email'],
         "full_name": user['full_name']
     }
@@ -56,7 +61,9 @@ def get_tenant_context(user: dict = Depends(get_current_user)):
     return {
         "organization": user["org_id"],
         "user_id": user["id"],
-        "role": user["role"]
+        "role": user["role"],
+        "plant_id": user["plant_id"],
+        "department_id": user["department_id"]
     }
 
 def get_embedding_service():

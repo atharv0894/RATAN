@@ -1,6 +1,6 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, Field
 from app.services.user_service import UserService
 from app.api.responses import APISuccessResponse, APIPaginatedResponse, PaginatedMeta
 from app.services.dependencies import get_current_user, RequireRole
@@ -8,7 +8,7 @@ from app.services.dependencies import get_current_user, RequireRole
 router = APIRouter()
 
 class UserCreateRequest(BaseModel):
-    email: EmailStr
+    email: str = Field(pattern=r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$")
     password: str
     full_name: str
     role_id: str

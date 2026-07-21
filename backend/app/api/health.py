@@ -10,7 +10,7 @@ router = APIRouter()
 
 START_TIME = time.time()
 
-@router.api_route("/health", methods=["GET", "HEAD"], response_model=APISuccessResponse)
+@router.get("/health", response_model=APISuccessResponse)
 def get_health():
     uptime = time.time() - START_TIME
     

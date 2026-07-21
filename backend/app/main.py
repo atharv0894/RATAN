@@ -82,6 +82,6 @@ app.include_router(jobs.router, prefix="/api/v1/processing-jobs", tags=["process
 app.include_router(dashboard.router, prefix="/api/v1/dashboard", tags=["dashboard"])
 app.include_router(admin.router, prefix="/api/v1/admin", tags=["admin"])
 
-@app.api_route("/", methods=["GET", "HEAD"])
+@app.get("/")
 def read_root():
     return {"message": "Welcome to RATAN API"}

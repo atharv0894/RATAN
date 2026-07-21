@@ -1,48 +1,58 @@
-# RATAN Backend Service
+# RATAN Backend
 
-This is the core backend service for the RATAN (Retrieval-Augmented Technology for Asset Networks) platform. It provides a robust, scalable, and secure API for processing industrial documents and executing intelligent RAG queries.
+This is the Python (FastAPI) backend for the **RATAN** (Retrieval-Augmented Technology for Asset Networks) platform.
 
-## Technology Stack
-- **Framework**: FastAPI (Python 3.11+)
-- **Metadata Database**: SQLite (Normalized V2 Schema)
-- **Vector Database**: Qdrant Cloud
-- **Object Storage**: Backblaze B2 (S3 Compatible)
-- **Authentication**: PyJWT & Passlib (Bcrypt)
-- **Testing**: Pytest (90%+ Coverage target)
+## 🏗️ High-Level Architecture
 
-## Project Structure
-```text
-app/
-├── api/          # FastAPI Routers (auth, chat, documents, etc.)
-├── database/     # SQLite configuration and V2 Schema Definition
-├── entity/       # Entity Extraction pipelines
-├── exceptions.py # Global custom exception handlers
-├── main.py       # Application entrypoint & Middleware
-├── models/       # Pydantic core schemas
-├── rag/          # Core AI logic (Vector Store, Parsers, Strategy Engine, Reranker)
-├── services/     # Business logic layer (Auth, Documents, Dependencies)
-└── storage/      # Local and Cloud (Backblaze) storage providers
+```mermaid
+graph TD
+    Client([Frontend / Client]) --> |HTTP REST| FastAPI[FastAPI App]
+    
+    FastAPI --> |Auth| Middleware[JWT & RBAC Middleware]
+    Middleware --> Routers[API Routers]
+    
+    Routers --> ServiceLayer[Service Layer]
+    
+    ServiceLayer --> |SQL CRUD| Repositories[Repository Layer]
+    Repositories --> SQLite[(SQLite Metadata)]
+    
+    ServiceLayer --> |Vector Search| RAGEngine[RAG Engine]
+    RAGEngine --> Qdrant[(Qdrant Cloud)]
+    RAGEngine --> LLMs{LLM Routers}
+    
+    LLMs --> Groq[Groq Llama 3]
+    LLMs --> Gemini[Google Gemini]
+    
+    ServiceLayer --> |Blob Storage| Backblaze[(Backblaze B2)]
 ```
 
-## Setup & Execution
+## 🧠 Core Technologies
+- **Framework**: FastAPI (Python 3.10+)
+- **Database**: SQLite (V2 Enterprise Schema)
+- **Vector Store**: Qdrant Cloud
+- **Object Storage**: Backblaze B2
+- **AI Models**: Groq (Primary), Gemini (Fallback)
 
-1. **Install Dependencies**
-   ```bash
-   pip install -r ../requirements.txt
-   ```
+## 📁 Project Structure
+- `app/api/`: Presentation layer containing all REST API endpoints.
+- `app/services/`: Domain-driven business logic and orchestration.
+- `app/database/`: SQLite connection pooling, migrations, and the Repository layer.
+- `app/rag/`: Advanced Retrieval-Augmented Generation pipeline (chunking, parsing, searching, prompting).
+- `app/storage/`: B2 cloud integration and local mock storage.
+- `app/entity/`: NLP extraction for dynamic metadata tagging.
+- `tests/`: Pytest suite for end-to-end and unit testing.
 
-2. **Run Server**
-   ```bash
-   uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-   ```
+## ✨ Enterprise Features
+1. **Multi-tenancy**: Strict isolation between Organizations, Plants, and Departments.
+2. **Immutable Document Lifecycle**: Complete history tracking and deduplication using SHA-256.
+3. **Server-Side AI Grounding**: LLMs are restricted by strict system prompts, and confidence is scored server-side using vector proximity.
+4. **Operations Dashboard**: Real-time analytical aggregations executed cleanly at the database level.
+5. **Admin Portal**: Global cross-tenant controls for maintenance and system settings.
 
-3. **Running Tests**
-   ```bash
-   pytest --cov=app tests/
-   ```
-
-## Security Posture
-- **JWT Authorization**: Enforced across all state-mutating endpoints.
-- **RBAC**: Protected by `RequireRole` decorators.
-- **Tenant Isolation**: Deeply integrated into SQL queries and Qdrant `WHERE` clauses to prevent horizontal privilege escalation.
-- **Audit Logging**: Tracks every request execution via middleware.
+## 🚀 Quick Start
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000
+```

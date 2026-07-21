@@ -2,7 +2,7 @@ import os
 import time
 import jwt
 from typing import Optional, Dict, Any
-from passlib.context import CryptContext
+import bcrypt
 from app.exceptions import AuthenticationError
 
 class AuthService:
@@ -12,15 +12,14 @@ class AuthService:
     ACCESS_TOKEN_EXPIRE_MINUTES = 60
     REFRESH_TOKEN_EXPIRE_DAYS = 7
     
-    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-    
     @classmethod
     def verify_password(cls, plain_password: str, hashed_password: str) -> bool:
-        return cls.pwd_context.verify(plain_password, hashed_password)
+        return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
         
     @classmethod
     def get_password_hash(cls, password: str) -> str:
-        return cls.pwd_context.hash(password)
+        salt = bcrypt.gensalt()
+        return bcrypt.hashpw(password.encode('utf-8'), salt).decode('utf-8')
         
     @classmethod
     def create_access_token(cls, data: dict, expires_delta_minutes: Optional[int] = None) -> str:

@@ -21,7 +21,7 @@ class ContextBuilder:
             chunk_id = chunk.get('chunk_id', 'N/A')
             
             block = (
-                f"[Evidence ID: {chunk_id}]\n"
+                f"[Evidence ID: {i}]\n"
                 f"Document: {filename} (v{version})\n"
                 f"Page: {page} | Section: {section}\n"
                 f"---\n{chunk['text']}\n==="

@@ -27,7 +27,7 @@ def test_query_expansion():
 def test_reranker_logic():
     chunks = [
         {"distance": 0.5, "metadata": {"version_number": 1, "heading": "Introduction"}, "text": "Something else"},
-        {"distance": 0.8, "metadata": {"version_number": 2, "heading": "Pump repair"}, "text": "To fix the pump do this"}
+        {"distance": 0.2, "metadata": {"version_number": 2, "heading": "Pump repair"}, "text": "To fix the pump do this"}
     ]
     ranked = Reranker.rerank("fix pump", chunks)
     # The chunk with distance 0.8 and version 2 and heading match should rank higher

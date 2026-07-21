@@ -15,25 +15,15 @@ GROUNDING RULES:
 3. Every factual claim must be backed by the evidence. 
 
 CONFIDENCE SCORING:
-Generate a confidence score (0.0 to 1.0) based on:
-- High (0.8-1.0): Direct, explicit answer found in context.
-- Medium (0.5-0.7): Partial answer or inferred from related steps.
-- Low (0.0-0.4): Conflicting evidence or mostly missing.
+Confidence is calculated server-side. Do not include confidence in your response.
+
+CITATIONS:
+When answering, use inline citations using the Evidence ID provided in the context, like [1] or [2].
 
 You must output your response in valid JSON format ONLY. Do not wrap in markdown blocks.
 The JSON must strictly match this schema:
 {
-    "answer": "Your strictly grounded text answer.",
-    "citations": [
-        {
-            "document": "Filename.pdf",
-            "version": 1,
-            "page": 5,
-            "section": "1.2 Safety",
-            "chunk_id": "chunk_abc123"
-        }
-    ],
-    "confidence_score": 0.95,
+    "answer": "Your strictly grounded text answer with inline citations [1].",
     "follow_up_questions": [
         "Question 1 based on context?",
         "Question 2 based on context?",

@@ -18,15 +18,18 @@ from app.rag.prompt_builder import PromptBuilder
 from app.rag.query_analyzer import QueryAnalyzer
 from app.rag.reranker import Reranker
 from app.rag.context_builder import ContextBuilder
+from app.rag.retrieval_service import RetrievalService
 
 class RAGService:
     def __init__(self, search_engine=None):
+        embedding_service = EmbeddingService()
+        vector_store = VectorStore()
         if search_engine is None:
-            embedding_service = EmbeddingService()
-            vector_store = VectorStore()
             self.search_engine = SearchEngine(embedding_service, vector_store)
         else:
             self.search_engine = search_engine
+        
+        self.retrieval_service = RetrievalService(embedding_service, vector_store)
         
         groq_api_key = os.environ.get("GROQ_API_KEY")
         if not groq_api_key:
@@ -90,6 +93,37 @@ class RAGService:
         ranked_chunks = Reranker.rerank(clean_query, retrieved_chunks)
         top_chunks = ranked_chunks[:5] # Keep top 5 for LLM context
         
+        if not top_chunks:
+            return {
+                "answer": "I couldn't find sufficient evidence.",
+                "citations": [],
+                "confidence_score": 0.0,
+                "follow_up_questions": [],
+                "provider": "None",
+                "intent": intent
+            }
+            
+        # Calculate server-side confidence
+        distances = [c.get("distance", 1.0) for c in top_chunks]
+        avg_distance = sum(distances) / len(distances) if distances else 1.0
+        # Lower distance is better in most vector stores. Let's invert it for a 0-1 confidence score.
+        confidence = max(0.0, min(1.0, 1.0 - (avg_distance / 2.0)))
+        
+        # Build server-side citations mapping
+        citations = []
+        for i, chunk in enumerate(top_chunks, 1):
+            meta = chunk.get('metadata', {})
+            citations.append({
+                "evidence_id": i,
+                "document_id": meta.get('document_id', 'Unknown'),
+                "document_name": meta.get('filename', meta.get('source', 'Unknown')),
+                "version": meta.get('version_number', 1),
+                "page": meta.get('page', meta.get('page_no', 'N/A')),
+                "section": meta.get('heading', meta.get('section', 'N/A')),
+                "chunk_id": chunk.get('chunk_id', 'N/A'),
+                "similarity_score": 1.0 - chunk.get('distance', 1.0)
+            })
+        
         # 6. Context Building
         context_str = ContextBuilder.build_context(top_chunks)
         
@@ -150,8 +184,6 @@ class RAGService:
         except Exception:
             parsed = {
                 "answer": "Failed to parse LLM response.",
-                "citations": [],
-                "confidence_score": 0.0,
                 "follow_up_questions": []
             }
             
@@ -161,10 +193,10 @@ class RAGService:
         
         # Normalize output
         return {
-            "answer": parsed.get("answer", ""),
-            "citations": parsed.get("citations", []),
-            "confidence_score": parsed.get("confidence_score", 0.0),
-            "follow_up_questions": parsed.get("follow_up_questions", []),
+            "answer": parsed.get("answer", content if 'content' in locals() else ""),
+            "citations": citations,
+            "confidence_score": confidence,
+            "follow_up_questions": parsed.get("follow_up_questions", [])[:3],
             "provider": generated_by,
             "intent": intent
         }

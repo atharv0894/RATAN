@@ -1,5 +1,6 @@
 import time
 import logging
+import uuid
 from app.database.sqlite import get_db_connection
 from app.storage.storage_service import StorageService
 from app.rag.vector_store import VectorStore
@@ -9,11 +10,12 @@ class CleanupService:
         self.storage_service = StorageService()
         self.vector_store = VectorStore()
         
-    def eradicate_document_version(self, version_id: str):
+    def eradicate_document_version(self, version_id: str, user_id: str = None) -> tuple[bool, str]:
         """
-        ACID-like hard delete workflow. Rolls back state if Qdrant or Storage fails.
+        Compensating Transaction Pattern for hard deletion.
+        If deletion of vectors or files fails, we log the failure and revert the SQLite state (compensating action)
+        so it can be retried later, never leaving inconsistent metadata.
         """
-        import uuid
         conn = get_db_connection()
         cursor = conn.cursor()
         
@@ -25,19 +27,24 @@ class CleanupService:
             conn.close()
             return False, "Document version not found."
             
-        if doc_version['is_locked'] == 1:
+        if doc_version['locked_at'] is not None:
             conn.close()
             return False, "Document is locked."
             
         # 3. Check indexing
-        if doc_version['status'] == 'Processing':
+        if doc_version['status'] in ('PROCESSING', 'INDEXING'):
             conn.close()
             return False, "Indexing is currently running."
             
-        cursor.execute("UPDATE document_versions SET is_locked = 1 WHERE id = ?", (version_id,))
+        now = time.time()
+        cursor.execute("""
+            UPDATE document_versions 
+            SET locked_at = ?, locked_by_user_id = ?, lock_reason = 'Cleanup Eradication'
+            WHERE id = ?
+        """, (now, user_id, version_id))
         conn.commit()
         
-        storage_path = doc_version.get('storage_path')
+        storage_path = doc_version['storage_path']
         document_id = doc_version['document_id']
         
         try:
@@ -47,12 +54,17 @@ class CleanupService:
                     collection_name=self.vector_store.collection_name,
                     points_selector={"filter": {"must": [{"key": "version_id", "match": {"value": version_id}}]}}
                 )
-            except Exception:
-                pass # If it's chroma or older qdrant client, ignore
+            except Exception as e:
+                logging.error(f"Error during Qdrant cleanup: {e}")
+                raise e
 
             # 5, 6, 7. Delete file from Storage (Backblaze + Local Cache)
-            if storage_path:
-                self.storage_service.delete(storage_path)
+            try:
+                if storage_path:
+                    self.storage_service.delete(storage_path)
+            except Exception as e:
+                logging.error(f"Error during B2 cleanup: {e}")
+                raise e
                 
             # 8. Delete metadata from SQLite
             cursor.execute("DELETE FROM document_versions WHERE id = ?", (version_id,))
@@ -63,8 +75,7 @@ class CleanupService:
                 cursor.execute("DELETE FROM documents WHERE id = ?", (document_id,))
             
             # 10. Write audit log
-            from app.database.repositories import get_system_user
-            sys_user = get_system_user(cursor)
+            sys_user = user_id or "SYSTEM"
             cursor.execute('''INSERT INTO audit_logs (id, user_id, endpoint, action, resource, status, created_at, updated_at) 
                               VALUES (?, ?, ?, ?, ?, ?, ?, ?)''', 
                            (str(uuid.uuid4()), sys_user, "SYSTEM", "HARD_DELETE", version_id, "Success", time.time(), time.time()))
@@ -73,15 +84,18 @@ class CleanupService:
             return True, "Success"
             
         except Exception as e:
-            # Rollback: Release lock
-            cursor.execute("UPDATE document_versions SET is_locked = 0 WHERE id = ?", (version_id,))
-            from app.database.repositories import get_system_user
-            sys_user = get_system_user(cursor)
+            # Compensating Action: Release lock and log failure
+            cursor.execute("""
+                UPDATE document_versions 
+                SET locked_at = NULL, locked_by_user_id = NULL, lock_reason = NULL 
+                WHERE id = ?
+            """, (version_id,))
+            sys_user = user_id or "SYSTEM"
             cursor.execute('''INSERT INTO audit_logs (id, user_id, endpoint, action, resource, status, created_at, updated_at) 
                               VALUES (?, ?, ?, ?, ?, ?, ?, ?)''', 
-                           (str(uuid.uuid4()), sys_user, "SYSTEM", "HARD_DELETE_FAILED", version_id, "Rollback", time.time(), time.time()))
+                           (str(uuid.uuid4()), sys_user, "SYSTEM", "FAILED_DELETE", version_id, "Rollback", time.time(), time.time()))
             conn.commit()
-            logging.error(f"Eradicate failed for {version_id}, rolled back SQLite lock. Error: {e}")
+            logging.error(f"Eradicate failed for {version_id}, initiated compensating action (unlocked). Error: {e}")
             return False, str(e)
         finally:
             conn.close()
@@ -89,27 +103,42 @@ class CleanupService:
     def run_cleanup(self, timeout_seconds=3600, purge_deleted=False):
         """
         Runs comprehensive cleanup of the database, vector store, and local storage.
+        Detects orphaned vectors, missing files, stale locks, and failed processing jobs.
         """
         logging.info("Starting automated backend cleanup.")
         conn = get_db_connection()
         cursor = conn.cursor()
+        now = time.time()
         
-        # 1. Stale Processing Documents
-        cutoff_time = time.time() - timeout_seconds
-        cursor.execute("SELECT id FROM document_versions WHERE status = 'Processing' AND created_at < ?", (cutoff_time,))
+        stats = {"stale_jobs_cleaned": 0, "stale_locks_cleared": 0, "failed_docs_purged": 0}
+        
+        # 1. Stale Processing Jobs / Documents
+        cutoff_time = now - timeout_seconds
+        cursor.execute("SELECT id FROM document_versions WHERE status IN ('PROCESSING', 'INDEXING') AND uploaded_at < ?", (cutoff_time,))
         stale_docs = cursor.fetchall()
         for row in stale_docs:
             v_id = row['id']
-            logging.warning(f"Cleanup: Marking stale Processing document {v_id} as Failed.")
-            cursor.execute("UPDATE document_versions SET status = 'Failed' WHERE id = ?", (v_id,))
-        
+            logging.warning(f"Cleanup: Marking stale PROCESSING document {v_id} as FAILED.")
+            cursor.execute("UPDATE document_versions SET status = 'FAILED' WHERE id = ?", (v_id,))
+            cursor.execute("UPDATE processing_jobs SET status = 'FAILED', error_message = 'Timeout' WHERE target_id = ? AND status = 'PROCESSING'", (v_id,))
+            stats["stale_jobs_cleaned"] += 1
+            
+        # 2. Clear Stale Locks
+        cursor.execute("SELECT id FROM document_versions WHERE locked_at IS NOT NULL AND locked_at < ?", (cutoff_time,))
+        stale_locks = cursor.fetchall()
+        for row in stale_locks:
+            v_id = row['id']
+            logging.warning(f"Cleanup: Releasing stale lock for document {v_id}.")
+            cursor.execute("UPDATE document_versions SET locked_at = NULL, locked_by_user_id = NULL, lock_reason = NULL WHERE id = ?", (v_id,))
+            stats["stale_locks_cleared"] += 1
 
-        
         # 3. Failed Document Cleanup (Storage + DB)
-        cursor.execute("SELECT id FROM document_versions WHERE status = 'Failed'")
+        cursor.execute("SELECT id FROM document_versions WHERE status = 'FAILED'")
         failed_docs = cursor.fetchall()
         for row in failed_docs:
-            self.eradicate_document_version(row['id'])
+            success, msg = self.eradicate_document_version(row['id'])
+            if success:
+                stats["failed_docs_purged"] += 1
             
         # 4. Purge soft-deleted documents if requested
         if purge_deleted:
@@ -125,4 +154,4 @@ class CleanupService:
         conn.commit()
         conn.close()
         logging.info("Automated cleanup completed successfully.")
-        return {"cleaned_stale": len(stale_docs), "cleaned_failed": len(failed_docs)}
+        return stats

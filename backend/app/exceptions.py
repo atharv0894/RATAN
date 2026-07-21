@@ -30,8 +30,9 @@ class AuthorizationError(AppException):
 
 # Specific custom errors from before
 class DuplicateDocumentError(DuplicateResourceError):
-    def __init__(self, document_id: str):
-        super().__init__("Document", document_id)
+    def __init__(self, message: str = "Document already exists", document_id: str = None):
+        self.document_id = document_id
+        super().__init__("Document", document_id or message)
 
 async def app_exception_handler(request: Request, exc: AppException):
     return JSONResponse(

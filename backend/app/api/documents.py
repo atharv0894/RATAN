@@ -2,9 +2,10 @@ import os
 import uuid
 import tempfile
 import shutil
-from typing import List
-from fastapi import APIRouter, UploadFile, File, Depends
+from typing import List, Optional
+from fastapi import APIRouter, UploadFile, File, Depends, Form
 from pydantic import BaseModel
+import json
 from app.services.dependencies import get_document_service, get_current_user, RequireRole, get_tenant_context
 from app.api.responses import APISuccessResponse, APIPaginatedResponse, PaginatedMeta
 from app.exceptions import DuplicateDocumentError, ValidationError, NotFoundError, AppException
@@ -19,11 +20,17 @@ class DocumentResponse(BaseModel):
     chunks: int
     version_number: int
     is_latest: bool
-    is_deleted: bool
+    title: Optional[str] = None
+    description: Optional[str] = None
+    category: Optional[str] = None
+    equipment: Optional[str] = None
+    language: Optional[str] = None
+    author: Optional[str] = None
 
 @router.post("/upload", response_model=APISuccessResponse)
 async def upload_documents(
     file: UploadFile = File(...),
+    metadata: str = Form(None, description="Optional JSON string for metadata (title, description, category, equipment, language, author)"),
     current_user: dict = Depends(RequireRole(["Admin", "Plant Manager", "Maintenance Engineer", "Quality Engineer"]))
 ):
     allowed_exts = (".pdf", ".docx", ".txt", ".md", ".csv")
@@ -46,20 +53,35 @@ async def upload_documents(
         with open(temp_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
             
-        doc_id = doc_service.process_and_index(file.filename, temp_path)
+        meta_dict = {}
+        if metadata:
+            try:
+                meta_dict = json.loads(metadata)
+            except Exception:
+                raise ValidationError("Invalid JSON format in metadata field.")
+                
+        doc_id = doc_service.process_and_index(
+            filename=file.filename, 
+            file_path=temp_path, 
+            user_id=current_user["id"],
+            org_id=current_user["org_id"],
+            plant_id=current_user.get("plant_id") or "Unknown",
+            dept_id=current_user.get("department_id") or "Unknown",
+            metadata=meta_dict
+        )
         return APISuccessResponse(data={
-            "status": "uploaded",
+            "status": "UPLOADED",
             "document_id": doc_id,
             "filename": file.filename,
             "duplicate": False
         })
     except DuplicateDocumentError as e:
         return APISuccessResponse(data={
-            "status": "already_exists",
+            "status": "ALREADY_EXISTS",
             "document_id": e.document_id,
             "filename": file.filename,
             "duplicate": True,
-            "message": "Document already indexed."
+            "message": "Document checksum already exists."
         })
     except QdrantUploadError as e:
         raise AppException(500, "QDRANT_ERROR", str(e.error_details))
@@ -93,7 +115,12 @@ def list_documents(
             chunks=d["chunk_count"],
             version_number=d.get("version_number", 1),
             is_latest=bool(d.get("is_latest", 1)),
-            is_deleted=bool(d.get("is_deleted", 0))
+            title=d.get("title"),
+            description=d.get("description"),
+            category=d.get("category"),
+            equipment=d.get("equipment"),
+            language=d.get("language"),
+            author=d.get("author")
         ) for d in paginated_docs
     ]
     
@@ -120,7 +147,12 @@ def get_document(document_id: str, current_user: dict = Depends(get_current_user
         chunks=doc["chunk_count"],
         version_number=doc.get("version_number", 1),
         is_latest=bool(doc.get("is_latest", 1)),
-        is_deleted=bool(doc.get("is_deleted", 0))
+        title=doc.get("title"),
+        description=doc.get("description"),
+        category=doc.get("category"),
+        equipment=doc.get("equipment"),
+        language=doc.get("language"),
+        author=doc.get("author")
     ))
 
 @router.delete("/{document_id}", response_model=APISuccessResponse)
@@ -130,12 +162,57 @@ def delete_document(
 ):
     doc_service = get_document_service()
     try:
-        success = doc_service.delete_document(document_id)
+        success = doc_service.delete_document(document_id, user_id=current_user["id"])
         if not success:
             raise NotFoundError("Document", document_id)
-        return APISuccessResponse(data={"message": "Document soft-deleted successfully"})
+        return APISuccessResponse(data={"message": "Document soft-deleted successfully."})
+    except AppException:
+        raise
     except Exception as e:
         error_msg = str(e)
-        if "locked" in error_msg.lower() or "indexing is currently running" in error_msg.lower():
+        if "processing" in error_msg.lower() or "indexing" in error_msg.lower():
             raise AppException(409, "DOCUMENT_LOCKED", error_msg)
         raise AppException(500, "INTERNAL_ERROR", error_msg)
+
+@router.post("/{document_id}/restore", response_model=APISuccessResponse)
+def restore_document(
+    document_id: str,
+    current_user: dict = Depends(RequireRole(["Admin", "Plant Manager"]))
+):
+    doc_service = get_document_service()
+    try:
+        success = doc_service.restore_document(document_id, user_id=current_user["id"])
+        if not success:
+            raise NotFoundError("Document", document_id)
+        return APISuccessResponse(data={"message": "Document restored successfully."})
+    except AppException:
+        raise
+    except Exception as e:
+        raise AppException(409, "RESTORE_FAILED", str(e))
+
+class MetadataUpdateRequest(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    category: Optional[str] = None
+    equipment: Optional[str] = None
+    language: Optional[str] = None
+    author: Optional[str] = None
+
+@router.patch("/{document_id}", response_model=APISuccessResponse)
+def update_metadata(
+    document_id: str,
+    request: MetadataUpdateRequest,
+    current_user: dict = Depends(RequireRole(["Admin", "Plant Manager", "Maintenance Engineer", "Quality Engineer"]))
+):
+    doc_service = get_document_service()
+    try:
+        success = doc_service.update_metadata(document_id, request.dict(exclude_unset=True), user_id=current_user["id"])
+        if not success:
+            raise NotFoundError("Document", document_id)
+        return APISuccessResponse(data={"message": "Metadata updated successfully."})
+    except AppException:
+        raise
+    except ValueError as e:
+        raise AppException(409, "METADATA_UPDATE_FAILED", str(e))
+    except Exception as e:
+        raise AppException(500, "INTERNAL_ERROR", str(e))

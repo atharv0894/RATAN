@@ -1,8 +1,33 @@
-# Service Layer (`app/services/`)
+# Business Logic Layer (`app/services/`)
 
-The Service Layer abstracts business logic away from the API routers. 
+This module houses the core orchestration of the RATAN application. It sits perfectly between the `api` (Presentation) and `database` (Persistence) layers.
 
-## Key Services
-- `auth_service.py`: Handles secure password hashing (passlib/bcrypt) and JWT Token generation/validation (PyJWT).
-- `document_service.py`: Orchestrates the complex Document Processing Pipeline (Upload -> Parse -> Chunk -> Hash -> Vectorize -> Store -> Metadata DB).
-- `dependencies.py`: FastAPI Dependency Injectors. Contains Singletons for major services and crucial request-scoped extractors like `get_current_user`, `get_tenant_context`, and `RequireRole`.
+## 🏗️ Service Architecture
+
+```mermaid
+graph TD
+    API[API Routers] --> Services{Service Boundary}
+    
+    Services --> DocService[Document Service]
+    Services --> OrgService[Organization Service]
+    Services --> AdminService[Admin Service]
+    Services --> DashService[Dashboard Service]
+    
+    DocService --> DB[Database Repositories]
+    OrgService --> DB
+    AdminService --> DB
+    DashService --> DB
+    
+    DocService --> B2[(Backblaze B2)]
+    DocService --> Qdrant[(Qdrant Cloud)]
+```
+
+## 🧠 Core Tasks
+- **Business Rule Enforcement**: Checking uniqueness (e.g. duplicate filenames, emails) before database insertion.
+- **Workflow Orchestration**: E.g., `DocumentService.upload_document` must upload binary to Backblaze, create a `document_versions` record, queue an embedding job, and write an Audit Log.
+- **Exception Handling**: Catching database constraint errors and throwing HTTP-ready domain exceptions (like `NotFoundError` or `DuplicateResourceError`).
+
+## ✨ Features
+- **Decoupled**: Services are pure Python classes/functions. They do not know about HTTP requests or FastAPI dependencies.
+- **Transaction Management**: Groups related DB operations and handles `commit()` vs `rollback()`.
+- **Cross-Tenant Admin Logic**: Centralizes complex global aggregations via the `AdminService` and `DashboardService`.

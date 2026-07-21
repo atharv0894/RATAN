@@ -49,7 +49,7 @@ def create_user(
     payload: UserCreateRequest, 
     current_user: dict = Depends(RequireRole(["Admin"]))
 ):
-    data = payload.dict()
+    data = payload.model_dump()
     data["org_id"] = current_user["org_id"]
     
     user = UserService.create_user(data)
@@ -61,7 +61,7 @@ def update_user(
     payload: UserUpdateRequest, 
     current_user: dict = Depends(RequireRole(["Admin", "Plant Manager"]))
 ):
-    user = UserService.update_user(user_id, current_user["org_id"], payload.dict(exclude_unset=True))
+    user = UserService.update_user(user_id, current_user["org_id"], payload.model_dump(exclude_unset=True))
     return APISuccessResponse(data=UserResponse(**user))
 
 @router.delete("/{user_id}", response_model=APISuccessResponse)

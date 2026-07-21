@@ -29,6 +29,6 @@ class Reranker:
                 
             chunk['rerank_score'] = base_score
             
-        # Sort by the custom rerank_score descending
-        ranked = sorted(chunks, key=lambda x: x.get('rerank_score', 0), reverse=True)
+        # Sort by the custom rerank_score descending, then by version_number descending
+        ranked = sorted(chunks, key=lambda x: (x.get('rerank_score', 0), x.get('metadata', {}).get('version_number', 1)), reverse=True)
         return ranked

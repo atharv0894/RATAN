@@ -4,13 +4,30 @@ from app.main import app
 import os
 import time
 
+import pytest
+from app.services.dependencies import get_current_user
+
+@pytest.fixture(autouse=True)
+def override_auth():
+    app.dependency_overrides[get_current_user] = lambda: {
+        "id": "test_user_id",
+        "org_id": "test_org_id",
+        "plant_id": "test_plant_id",
+        "department_id": "test_dept_id",
+        "role": "Admin",
+        "email": "test@admin.local",
+        "full_name": "Test Admin"
+    }
+    yield
+    app.dependency_overrides.clear()
+
 client = TestClient(app)
 
 def test_upload_invalid_extension():
     # Should reject non-supported extensions
     response = client.post("/api/v1/documents/upload", files={"file": ("test.exe", b"dummy content", "application/x-msdownload")})
-    assert response.status_code == 415
-    assert "Unsupported file format" in response.json()["detail"]
+    assert response.status_code == 422
+    assert "Unsupported file format" in response.text
 
 def test_pdf_upload(tmp_path):
     # Mock PDF creation and upload

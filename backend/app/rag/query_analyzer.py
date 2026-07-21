@@ -14,10 +14,10 @@ class QueryAnalyzer:
     @staticmethod
     def detect_intent(query: str) -> str:
         lower_query = query.lower()
-        if any(w in lower_query for w in ['how to', 'procedure', 'steps', 'process']):
-            return 'Procedure'
-        elif any(w in lower_query for w in ['troubleshoot', 'fix', 'error', 'broken', 'issue']):
+        if any(w in lower_query for w in ['troubleshoot', 'fix', 'error', 'broken', 'issue']):
             return 'Troubleshooting'
+        elif any(w in lower_query for w in ['how to', 'procedure', 'steps', 'process']):
+            return 'Procedure'
         elif any(w in lower_query for w in ['safe', 'ppe', 'hazard', 'warning']):
             return 'Safety'
         elif any(w in lower_query for w in ['compare', 'difference', 'vs']):

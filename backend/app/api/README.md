@@ -1,16 +1,35 @@
-# API Layer (`app/api/`)
+# Presentation Layer (`app/api/`)
 
-This directory defines the FastAPI routers and endpoints. It strictly handles HTTP request validation and response mapping, delegating all complex processing to the `services/` layer.
+This directory contains all FastAPI routers. It acts as the HTTP entry point for external clients, bridging network requests to internal business logic.
 
-## Endpoints
-- `auth.py`: JWT-based Registration, Login, and User Profile.
-- `chat.py`: Intelligent RAG conversational endpoint with integrated chat history.
-- `documents.py`: File uploading, list retrieval, soft-deletion, and restore operations.
-- `entities.py`: Extracts and lists industrial entities (Plants, Equipment, Persons) found across documents.
-- `health.py`: Diagnostics probing SQLite, Qdrant, Memory, and Disk usage.
-- `stats.py`: Aggregated global platform statistics.
-- `cleanup.py`: Job scheduler for physically deleting soft-deleted files and stale vectors.
+## 🏗️ Routing Architecture
 
-## Standards
-- All responses are wrapped in `APISuccessResponse` or `APIPaginatedResponse` (`app/api/responses.py`).
-- Security is strictly enforced per-route via `Depends(RequireRole([...]))`.
+```mermaid
+graph TD
+    Client([HTTP Request]) --> FastAPI[FastAPI Middleware]
+    FastAPI --> AuthDependency[Auth & RBAC Middleware]
+    
+    AuthDependency --> |Validated User + Tenant| Router{API Router}
+    
+    Router --> |/auth| Auth[auth.py]
+    Router --> |/documents| Docs[documents.py]
+    Router --> |/chat| Chat[chat.py]
+    Router --> |/dashboard| Dash[dashboard.py]
+    Router --> |/admin| Admin[admin.py]
+    
+    Auth --> ServiceLayer[Service Layer]
+    Docs --> ServiceLayer
+    Chat --> ServiceLayer
+    Dash --> ServiceLayer
+    Admin --> ServiceLayer
+```
+
+## 🧠 Core Tasks
+- **Pydantic Validation**: Ensures all incoming JSON bodies (`POST`/`PATCH`) match strict schema definitions.
+- **Dependency Injection**: Resolves `get_current_user`, `RequireRole`, and database connections before a route function executes.
+- **Serialization**: Translates Service layer output (often dictionaries or lists) back into standardized JSON `APISuccessResponse` objects.
+
+## ✨ Features
+- **Tenant Isolation**: Injects `organization_id` strictly from JWTs.
+- **Role-Based Access**: Defines exactly which endpoints require `User`, `Admin`, or `SuperAdmin` privileges.
+- **Stateless Routing**: Retains no state, allowing for infinite horizontal scaling of API nodes.

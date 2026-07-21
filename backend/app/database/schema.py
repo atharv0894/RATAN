@@ -85,6 +85,11 @@ def create_schema(cursor: sqlite3.Cursor):
             id TEXT PRIMARY KEY,
             title TEXT NOT NULL,
             filename TEXT NOT NULL,
+            description TEXT,
+            category TEXT,
+            equipment TEXT,
+            language TEXT,
+            author TEXT,
             owner TEXT NOT NULL,
             organization TEXT NOT NULL,
             plant TEXT NOT NULL,
@@ -92,7 +97,10 @@ def create_schema(cursor: sqlite3.Cursor):
             created_at REAL NOT NULL,
             updated_at REAL NOT NULL,
             deleted_at REAL,
-            status TEXT DEFAULT 'Active'
+            deleted_by_user_id TEXT,
+            delete_reason TEXT,
+            status TEXT DEFAULT 'READY',
+            FOREIGN KEY (deleted_by_user_id) REFERENCES users(id) ON DELETE SET NULL
         )
     ''')
     
@@ -105,7 +113,7 @@ def create_schema(cursor: sqlite3.Cursor):
             checksum TEXT NOT NULL,
             storage_path TEXT NOT NULL,
             collection_name TEXT NOT NULL,
-            uploaded_by TEXT NOT NULL,
+            uploaded_by_user_id TEXT NOT NULL,
             uploaded_at REAL NOT NULL,
             mime_type TEXT,
             file_size INTEGER NOT NULL,
@@ -113,9 +121,13 @@ def create_schema(cursor: sqlite3.Cursor):
             chunk_count INTEGER NOT NULL,
             vector_count INTEGER NOT NULL,
             is_latest INTEGER DEFAULT 0,
-            status TEXT DEFAULT 'Active',
-            is_locked INTEGER DEFAULT 0,
+            status TEXT DEFAULT 'READY',
+            locked_at REAL,
+            locked_by_user_id TEXT,
+            lock_reason TEXT,
             FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE,
+            FOREIGN KEY (uploaded_by_user_id) REFERENCES users(id) ON DELETE RESTRICT,
+            FOREIGN KEY (locked_by_user_id) REFERENCES users(id) ON DELETE SET NULL,
             UNIQUE(document_id, version_number)
         )
     ''')
@@ -144,8 +156,10 @@ def create_schema(cursor: sqlite3.Cursor):
             llm_model TEXT NOT NULL,
             created_at REAL NOT NULL,
             updated_at REAL NOT NULL,
-            is_deleted INTEGER DEFAULT 0,
-            status TEXT DEFAULT 'Active',
+            deleted_at REAL,
+            is_pinned INTEGER DEFAULT 0,
+            metadata TEXT,
+            status TEXT DEFAULT 'ACTIVE' CHECK(status IN ('ACTIVE', 'ARCHIVED', 'DELETED')),
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
         )
     ''')
@@ -155,9 +169,13 @@ def create_schema(cursor: sqlite3.Cursor):
         CREATE TABLE IF NOT EXISTS chat_messages (
             id TEXT PRIMARY KEY,
             session_id TEXT NOT NULL,
+            parent_id TEXT,
             role TEXT NOT NULL CHECK(role IN ('user', 'assistant', 'system')),
             content TEXT NOT NULL,
             citations TEXT,
+            follow_up_questions TEXT,
+            search_filters TEXT,
+            confidence_score REAL,
             tokens_used INTEGER DEFAULT 0,
             latency_ms INTEGER DEFAULT 0,
             created_at REAL NOT NULL,
@@ -173,6 +191,7 @@ def create_schema(cursor: sqlite3.Cursor):
             message_id TEXT NOT NULL,
             user_id TEXT NOT NULL,
             rating INTEGER NOT NULL CHECK(rating IN (-1, 0, 1)),
+            issue_category TEXT,
             comments TEXT,
             created_at REAL NOT NULL,
             updated_at REAL NOT NULL,
@@ -204,7 +223,7 @@ def create_schema(cursor: sqlite3.Cursor):
             id TEXT PRIMARY KEY,
             target_type TEXT NOT NULL,
             target_id TEXT NOT NULL,
-            status TEXT NOT NULL CHECK(status IN ('Queued', 'Processing', 'Completed', 'Failed')),
+            status TEXT NOT NULL CHECK(status IN ('QUEUED', 'PROCESSING', 'EMBEDDING', 'INDEXING', 'COMPLETED', 'FAILED', 'CANCELLED')),
             started_at REAL,
             finished_at REAL,
             retry_count INTEGER DEFAULT 0,

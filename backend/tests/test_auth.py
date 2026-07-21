@@ -1,8 +1,23 @@
 import pytest
+import os
+import tempfile
 from fastapi.testclient import TestClient
+
+TEST_DB = tempfile.NamedTemporaryFile(delete=False, suffix=".db")
+os.environ["RATAN_DB_PATH"] = TEST_DB.name
+os.environ["JWT_SECRET_KEY"] = "test_secret_key"
+os.environ["JWT_ALGORITHM"] = "HS256"
+
 from app.main import app
+from app.database.sqlite import init_db
 
 client = TestClient(app)
+
+@pytest.fixture(scope="module", autouse=True)
+def setup_database():
+    init_db()
+    yield
+    os.remove(TEST_DB.name)
 
 def test_register_organization():
     response = client.post(

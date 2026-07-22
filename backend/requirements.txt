@@ -9,7 +9,6 @@ pytest
 httpx
 b2sdk
 qdrant-client
-sentence-transformers
 passlib[bcrypt]
 pdfplumber
 python-docx

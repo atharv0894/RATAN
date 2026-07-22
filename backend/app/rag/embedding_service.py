@@ -4,7 +4,7 @@ import logging
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 
 class EmbeddingService:
-    def __init__(self, model_name="models/text-embedding-004", device=None, batch_size=8):
+    def __init__(self, model_name="models/embedding-001", device=None, batch_size=8):
         # We ignore device and batch_size since it's an API call
         google_api_key = os.environ.get("GOOGLE_API_KEY")
         if not google_api_key:
@@ -14,7 +14,7 @@ class EmbeddingService:
             model=model_name,
             google_api_key=google_api_key
         )
-        self.dimension = 768  # text-embedding-004 dimension
+        self.dimension = 768  # embedding-001 dimension
         logging.info(f"Initialized Google Gemini Embeddings: {model_name}")
         
     def generate_embeddings(self, texts: list):

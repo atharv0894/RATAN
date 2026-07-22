@@ -9,6 +9,8 @@ class DashboardService:
             cursor.execute(query, params)
             row = cursor.fetchone()
             if row:
+                if isinstance(row, dict):
+                    return list(row.values())[0]
                 return list(row)[0]
             return 0
         finally:

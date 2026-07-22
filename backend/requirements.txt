@@ -16,3 +16,6 @@ python-docx
 langchain-core
 langchain-google-genai
 langchain-groq
+
+pymysql
+cryptography

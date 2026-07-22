@@ -4,6 +4,10 @@ import os
 default_db_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "ratan_registry.db")
 
 def get_db_connection():
+    if os.environ.get("TIDB_HOST"):
+        from app.database.tidb import get_tidb_connection
+        return get_tidb_connection()
+        
     db_path = os.environ.get("RATAN_DB_PATH", default_db_path)
     conn = sqlite3.connect(db_path, check_same_thread=False)
     conn.row_factory = sqlite3.Row
@@ -11,11 +15,13 @@ def get_db_connection():
 
 def init_db():
     conn = get_db_connection()
-    # Ensure foreign keys are enforced
-    conn.execute("PRAGMA foreign_keys = ON")
     
-    from app.database.migrations import run_migrations
-    run_migrations(conn)
+    # Only run SQLite migrations if using SQLite
+    if not os.environ.get("TIDB_HOST"):
+        # Ensure foreign keys are enforced
+        conn.execute("PRAGMA foreign_keys = ON")
+        from app.database.migrations import run_migrations
+        run_migrations(conn)
     
     conn.close()
 

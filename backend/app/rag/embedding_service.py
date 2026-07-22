@@ -1,5 +1,6 @@
 import os
 import logging
+# pyrefly: ignore [missing-import]
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 
 class EmbeddingService:

@@ -86,3 +86,8 @@ pytest
 pytest-asyncio
 psutil
 PyJWT
+# =========================
+# TIDB CLOUD DATABASE
+# =========================
+pymysql
+cryptography

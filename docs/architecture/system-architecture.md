@@ -19,7 +19,7 @@ graph TD
     ServiceLayer --> |Data Access| RepositoryLayer[Repository Layer]
     
     %% Storage and Databases
-    RepositoryLayer --> |SQL Metadata| SQLite[(SQLite Database)]
+    RepositoryLayer --> |SQL Metadata| SQLDB[(SQLite / TiDB MySQL)]
     ServiceLayer --> |Vector Embeddings| Qdrant[(Qdrant Cloud)]
     ServiceLayer --> |Binary Objects| Backblaze[(Backblaze B2 Storage)]
     
@@ -36,7 +36,7 @@ graph TD
     
     class User,Frontend client;
     class APIGateway,Authentication,FastAPI,ServiceLayer,RepositoryLayer api;
-    class SQLite,Qdrant,Backblaze storage;
+    class SQLDB,Qdrant,Backblaze storage;
     class Groq,Gemini external;
 ```
 
@@ -46,7 +46,7 @@ graph TD
 2. **FastAPI Backend**: The core engine. Handles asynchronous routing, request validation via Pydantic, and strictly enforces tenant boundaries.
 3. **Service Layer**: Contains isolated business logic (e.g., `DocumentService`, `RAGService`, `AdminService`), ensuring routers remain thin.
 4. **Repository Layer**: Abstracts raw SQL queries into Python methods, ensuring the Service Layer is decoupled from the specific database dialect.
-5. **SQLite Metadata**: Stores relational structures: Tenants, Users, Document states, audit logs, and Chat session histories.
+5. **Relational Metadata (SQLite / TiDB)**: Stores relational structures: Tenants, Users, Document states, audit logs, and Chat session histories. Uses SQLite for local dev and TiDB MySQL for highly-available production.
 6. **Backblaze B2**: Immutable object storage containing the original physical PDF/Text files uploaded by users.
 7. **Qdrant Cloud**: A highly scalable vector database holding embedded text chunks. Allows for semantic similarity searches filtered by tenant metadata.
 8. **Groq (Primary LLM)**: Selected for ultra-low latency token generation, critical for conversational RAG flows.

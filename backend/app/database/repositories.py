@@ -92,7 +92,7 @@ class DocumentRepository:
         self.conn.commit()
         return version_id
 
-    def list_latest_versions(self) -> List[Dict[str, Any]]:
+    def list_latest_versions(self, org_id: str) -> List[Dict[str, Any]]:
         cursor = self.conn.cursor()
         cursor.execute("""
             SELECT d.id as document_id, d.filename, d.title, 
@@ -100,8 +100,8 @@ class DocumentRepository:
                    v.id as version_id, v.version_number, v.status, v.file_size, v.chunk_count, v.uploaded_at as created_at
             FROM documents d
             JOIN document_versions v ON d.id = v.document_id
-            WHERE v.is_latest = 1 AND d.deleted_at IS NULL
-        """)
+            WHERE v.is_latest = 1 AND d.deleted_at IS NULL AND d.organization = ?
+        """, (org_id,))
         return [dict(r) for r in cursor.fetchall()]
 
     def soft_delete_document(self, document_id: str, user_id: str, reason: str = ""):

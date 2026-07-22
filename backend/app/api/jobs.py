@@ -32,16 +32,26 @@ def list_jobs(
     
     offset = (page - 1) * limit
     
-    query = "SELECT * FROM processing_jobs"
-    count_query = "SELECT COUNT(*) as c FROM processing_jobs"
-    params = []
+    query = """
+        SELECT pj.* FROM processing_jobs pj
+        JOIN document_versions dv ON pj.target_id = dv.id
+        JOIN documents d ON dv.document_id = d.id
+        WHERE d.organization = ?
+    """
+    count_query = """
+        SELECT COUNT(*) as c FROM processing_jobs pj
+        JOIN document_versions dv ON pj.target_id = dv.id
+        JOIN documents d ON dv.document_id = d.id
+        WHERE d.organization = ?
+    """
+    params = [current_user["org_id"]]
     
     if status:
-        query += " WHERE status = ?"
-        count_query += " WHERE status = ?"
+        query += " AND pj.status = ?"
+        count_query += " AND pj.status = ?"
         params.append(status.upper())
         
-    query += " ORDER BY created_at DESC LIMIT ? OFFSET ?"
+    query += " ORDER BY pj.created_at DESC LIMIT ? OFFSET ?"
     
     cursor.execute(count_query, params)
     total = cursor.fetchone()['c']
@@ -90,7 +100,12 @@ def get_job(
 ):
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM processing_jobs WHERE id = ?", (job_id,))
+    cursor.execute("""
+        SELECT pj.* FROM processing_jobs pj
+        JOIN document_versions dv ON pj.target_id = dv.id
+        JOIN documents d ON dv.document_id = d.id
+        WHERE pj.id = ? AND d.organization = ?
+    """, (job_id, current_user["org_id"]))
     row = cursor.fetchone()
     conn.close()
     

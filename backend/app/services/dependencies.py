@@ -22,30 +22,14 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
     if not user_id:
         raise AuthenticationError("Token missing user ID.")
         
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("""
-        SELECT u.id, u.org_id, u.plant_id, u.department_id, u.email, u.full_name, u.status, r.name as role
-        FROM users u 
-        JOIN roles r ON u.role_id = r.id
-        WHERE u.id = ?
-    """, (user_id,))
-    user = cursor.fetchone()
-    conn.close()
-    
-    if not user:
-        raise AuthenticationError("User not found.")
-    if user['status'] != 'Active':
-        raise AuthenticationError("User is inactive or deleted.")
-        
     return {
-        "id": user['id'],
-        "org_id": user['org_id'],
-        "plant_id": user['plant_id'],
-        "department_id": user['department_id'],
-        "role": user['role'],
-        "email": user['email'],
-        "full_name": user['full_name']
+        "id": user_id,
+        "org_id": payload.get("org_id"),
+        "plant_id": payload.get("plant_id"),
+        "department_id": payload.get("department_id"),
+        "role": payload.get("role"),
+        "email": payload.get("email"),
+        "full_name": payload.get("full_name")
     }
 
 class RequireRole:
@@ -53,8 +37,10 @@ class RequireRole:
         self.allowed_roles = allowed_roles
         
     def __call__(self, user: dict = Depends(get_current_user)):
-        if user.get("role") not in self.allowed_roles:
-            raise AuthorizationError(f"Role {user.get('role')} is not authorized to access this resource.")
+        user_role = user.get("role")
+        if user_role not in ["SuperAdmin", "SYSTEM_ADMIN"]:
+            if user_role not in self.allowed_roles:
+                raise AuthorizationError(f"Role {user_role} is not authorized to access this resource.")
         return user
 
 def get_tenant_context(user: dict = Depends(get_current_user)):

@@ -134,3 +134,47 @@ class QdrantStore:
                 ]
             )
         )
+        
+    def delete_by_document_id(self, document_id: str):
+        self.client.delete(
+            collection_name=self.collection_name,
+            points_selector=Filter(
+                must=[
+                    FieldCondition(
+                        key="document_id",
+                        match=MatchValue(value=document_id)
+                    )
+                ]
+            )
+        )
+        
+    def count_by_document_id(self, document_id: str) -> int:
+        res = self.client.count(
+            collection_name=self.collection_name,
+            count_filter=Filter(
+                must=[
+                    FieldCondition(
+                        key="document_id",
+                        match=MatchValue(value=document_id)
+                    )
+                ]
+            )
+        )
+        return res.count
+        
+    def get_by_chunk_id(self, chunk_id: str):
+        qdrant_id = self._generate_uuid(chunk_id)
+        results = self.client.retrieve(
+            collection_name=self.collection_name,
+            ids=[qdrant_id],
+            with_payload=True
+        )
+        if not results:
+            return None
+            
+        payload = results[0].payload
+        return {
+            "chunk_id": chunk_id,
+            "text": payload.get("document_text", ""),
+            "metadata": payload
+        }

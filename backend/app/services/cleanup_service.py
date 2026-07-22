@@ -114,7 +114,14 @@ class CleanupService:
         
         # 1. Stale Processing Jobs / Documents
         cutoff_time = now - timeout_seconds
-        cursor.execute("SELECT id FROM document_versions WHERE status IN ('PROCESSING', 'INDEXING') AND uploaded_at < ?", (cutoff_time,))
+        if org_id:
+            cursor.execute("""
+                SELECT v.id FROM document_versions v 
+                JOIN documents d ON v.document_id = d.id 
+                WHERE d.organization = ? AND v.status IN ('PROCESSING', 'INDEXING') AND v.uploaded_at < ?
+            """, (org_id, cutoff_time))
+        else:
+            cursor.execute("SELECT id FROM document_versions WHERE status IN ('PROCESSING', 'INDEXING') AND uploaded_at < ?", (cutoff_time,))
         stale_docs = cursor.fetchall()
         for row in stale_docs:
             v_id = row['id']
@@ -124,7 +131,14 @@ class CleanupService:
             stats["stale_jobs_cleaned"] += 1
             
         # 2. Clear Stale Locks
-        cursor.execute("SELECT id FROM document_versions WHERE locked_at IS NOT NULL AND locked_at < ?", (cutoff_time,))
+        if org_id:
+            cursor.execute("""
+                SELECT v.id FROM document_versions v
+                JOIN documents d ON v.document_id = d.id
+                WHERE d.organization = ? AND v.locked_at IS NOT NULL AND v.locked_at < ?
+            """, (org_id, cutoff_time))
+        else:
+            cursor.execute("SELECT id FROM document_versions WHERE locked_at IS NOT NULL AND locked_at < ?", (cutoff_time,))
         stale_locks = cursor.fetchall()
         for row in stale_locks:
             v_id = row['id']
@@ -133,7 +147,14 @@ class CleanupService:
             stats["stale_locks_cleared"] += 1
 
         # 3. Failed Document Cleanup (Storage + DB)
-        cursor.execute("SELECT id FROM document_versions WHERE status = 'FAILED'")
+        if org_id:
+            cursor.execute("""
+                SELECT v.id FROM document_versions v
+                JOIN documents d ON v.document_id = d.id
+                WHERE d.organization = ? AND v.status = 'FAILED'
+            """, (org_id,))
+        else:
+            cursor.execute("SELECT id FROM document_versions WHERE status = 'FAILED'")
         failed_docs = cursor.fetchall()
         for row in failed_docs:
             success, msg = self.eradicate_document_version(row['id'])
@@ -142,11 +163,18 @@ class CleanupService:
             
         # 4. Purge soft-deleted documents if requested
         if purge_deleted:
-            cursor.execute("""
-                SELECT v.id FROM document_versions v
-                JOIN documents d ON v.document_id = d.id
-                WHERE d.deleted_at IS NOT NULL
-            """)
+            if org_id:
+                cursor.execute("""
+                    SELECT v.id FROM document_versions v
+                    JOIN documents d ON v.document_id = d.id
+                    WHERE d.organization = ? AND d.deleted_at IS NOT NULL
+                """, (org_id,))
+            else:
+                cursor.execute("""
+                    SELECT v.id FROM document_versions v
+                    JOIN documents d ON v.document_id = d.id
+                    WHERE d.deleted_at IS NOT NULL
+                """)
             deleted_docs = cursor.fetchall()
             for row in deleted_docs:
                 self.eradicate_document_version(row['id'])

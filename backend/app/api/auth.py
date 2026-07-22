@@ -1,7 +1,10 @@
 import uuid
 import time
+# pyrefly: ignore [missing-import]
 from fastapi import APIRouter, Depends, Request
+# pyrefly: ignore [missing-import]
 from fastapi.security import OAuth2PasswordRequestForm
+# pyrefly: ignore [missing-import]
 from pydantic import BaseModel, Field
 from app.services.auth_service import AuthService
 from app.services.session_service import SessionService
@@ -93,14 +96,29 @@ def register_organization(payload: OrgRegisterRequest):
 def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends()):
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT id, password_hash FROM users WHERE email = ? AND status = 'Active'", (form_data.username,))
+    cursor.execute("""
+        SELECT u.id, u.password_hash, u.org_id, u.plant_id, u.department_id, u.email, u.full_name, r.name as role 
+        FROM users u 
+        LEFT JOIN roles r ON u.role_id = r.id 
+        WHERE u.email = ? AND u.status = 'Active'
+    """, (form_data.username,))
     user = cursor.fetchone()
     conn.close()
     
     if not user or not AuthService.verify_password(form_data.password, user["password_hash"]):
         raise AuthenticationError("Incorrect email or password")
         
-    access_token = AuthService.create_access_token(data={"sub": user["id"]})
+    payload = {
+        "sub": user["id"],
+        "org_id": user["org_id"],
+        "plant_id": user["plant_id"],
+        "department_id": user["department_id"],
+        "email": user["email"],
+        "full_name": user["full_name"],
+        "role": user["role"]
+    }
+        
+    access_token = AuthService.create_access_token(data=payload)
     refresh_token = AuthService.create_refresh_token(data={"sub": user["id"]})
     
     # Store session
@@ -122,7 +140,31 @@ def refresh(payload: RefreshRequest):
     # Rotate token
     SessionService.revoke_session_by_token(payload.refresh_token)
     
-    access_token = AuthService.create_access_token(data={"sub": session["user_id"]})
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT u.id, u.org_id, u.plant_id, u.department_id, u.email, u.full_name, r.name as role 
+        FROM users u 
+        LEFT JOIN roles r ON u.role_id = r.id 
+        WHERE u.id = ? AND u.status = 'Active'
+    """, (session["user_id"],))
+    user = cursor.fetchone()
+    conn.close()
+    
+    if not user:
+        raise AuthenticationError("User is no longer active.")
+        
+    payload = {
+        "sub": user["id"],
+        "org_id": user["org_id"],
+        "plant_id": user["plant_id"],
+        "department_id": user["department_id"],
+        "email": user["email"],
+        "full_name": user["full_name"],
+        "role": user["role"]
+    }
+    
+    access_token = AuthService.create_access_token(data=payload)
     new_refresh_token = AuthService.create_refresh_token(data={"sub": session["user_id"]})
     
     SessionService.create_session(session["user_id"], new_refresh_token, "rotated", "rotated")

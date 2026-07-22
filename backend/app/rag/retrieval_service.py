@@ -64,11 +64,31 @@ class RetrievalService:
         embeddings = results['embeddings'][0]
         
         # Deduplicate by chunk_id first
+        # Enforce lifecycle filtering (cross-reference with SQLite to ensure no deleted docs enter context)
+        retrieved_doc_ids = {m.get('document_id') for m in metadatas if m.get('document_id')}
+        valid_doc_ids = set()
+        if retrieved_doc_ids:
+            try:
+                from app.database.sqlite import get_db_connection
+                conn = get_db_connection()
+                cursor = conn.cursor()
+                placeholders = ','.join(['?'] * len(retrieved_doc_ids))
+                cursor.execute(f"SELECT id FROM documents WHERE id IN ({placeholders}) AND deleted_at IS NULL AND status = 'READY'", list(retrieved_doc_ids))
+                valid_doc_ids = {row['id'] for row in cursor.fetchall()}
+                conn.close()
+            except Exception as e:
+                import logging
+                logging.error(f"Failed to cross-reference valid docs in retrieval: {e}")
+
         seen_chunks = set()
         unique_docs = []
         unique_embeddings = []
-        
+
         for i in range(len(documents)):
+            doc_id = metadatas[i].get('document_id')
+            if doc_id and doc_id not in valid_doc_ids:
+                continue # Skip orphaned vectors from deleted documents
+                
             chunk_id = metadatas[i].get('chunk_id')
             if not chunk_id:
                 # Fallback to source + page + hash

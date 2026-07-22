@@ -55,18 +55,28 @@ class EntityExtractor:
         conn.commit()
         conn.close()
 
-    def get_document_entities(self, document_id: str):
+    def get_document_entities(self, document_id: str, org_id: str):
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM entities WHERE document_id = ? ORDER BY created_at ASC", (document_id,))
+        cursor.execute("""
+            SELECT e.* FROM entities e
+            JOIN documents d ON e.document_id = d.id
+            WHERE e.document_id = ? AND d.organization = ?
+            ORDER BY e.created_at ASC
+        """, (document_id, org_id))
         rows = cursor.fetchall()
         conn.close()
         return [dict(row) for row in rows]
 
-    def search_entities(self, query: str):
+    def search_entities(self, query: str, org_id: str):
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM entities WHERE entity_value LIKE ? ORDER BY created_at DESC", (f"%{query}%",))
+        cursor.execute("""
+            SELECT e.* FROM entities e
+            JOIN documents d ON e.document_id = d.id
+            WHERE e.entity_value LIKE ? AND d.organization = ?
+            ORDER BY e.created_at DESC
+        """, (f"%{query}%", org_id))
         rows = cursor.fetchall()
         conn.close()
         return [dict(row) for row in rows]

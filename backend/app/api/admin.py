@@ -34,10 +34,11 @@ class RoleUpdate(BaseModel):
 @router.get("/organizations", response_model=APISuccessResponse)
 def list_organizations(
     skip: int = 0, limit: int = 50,
-    current_user: dict = Depends(RequireRole(["SuperAdmin", "Admin"])),
+    current_user: dict = Depends(RequireRole(["SuperAdmin", "SYSTEM_ADMIN", "Admin"])),
     service: AdminService = Depends(get_admin_service)
 ):
-    data = service.get_organizations(skip, limit)
+    org_id = None if current_user["role"] in ["SuperAdmin", "SYSTEM_ADMIN"] else current_user["org_id"]
+    data = service.get_organizations(skip, limit, org_id)
     return APISuccessResponse(data=data)
 
 @router.post("/organizations", response_model=APISuccessResponse)
@@ -152,10 +153,11 @@ def update_settings(
 @router.get("/audit", response_model=APISuccessResponse)
 def list_audit_logs(
     skip: int = 0, limit: int = 50,
-    current_user: dict = Depends(RequireRole(["SuperAdmin", "Admin"])),
+    current_user: dict = Depends(RequireRole(["SuperAdmin", "SYSTEM_ADMIN", "Admin"])),
     service: AdminService = Depends(get_admin_service)
 ):
-    data = service.get_audit_logs(skip, limit)
+    org_id = None if current_user["role"] in ["SuperAdmin", "SYSTEM_ADMIN"] else current_user["org_id"]
+    data = service.get_audit_logs(skip, limit, org_id)
     return APISuccessResponse(data=data)
 
 @router.post("/maintenance/{task_type}", response_model=APISuccessResponse)
@@ -177,8 +179,9 @@ def system_health(
 
 @router.get("/system/statistics", response_model=APISuccessResponse)
 def system_statistics(
-    current_user: dict = Depends(RequireRole(["SuperAdmin", "Admin"])),
+    current_user: dict = Depends(RequireRole(["SuperAdmin", "SYSTEM_ADMIN", "Admin"])),
     service: AdminService = Depends(get_admin_service)
 ):
-    data = service.get_system_statistics()
+    org_id = None if current_user["role"] in ["SuperAdmin", "SYSTEM_ADMIN"] else current_user["org_id"]
+    data = service.get_system_statistics(org_id)
     return APISuccessResponse(data=data)

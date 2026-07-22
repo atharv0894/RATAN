@@ -24,12 +24,24 @@ def get_stats(current_user: dict = Depends(RequireRole(["Admin", "Plant Manager"
     from app.database.sqlite import get_db_connection
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT COUNT(*) as count FROM documents WHERE organization = ?", (current_user["org_id"],))
+    query = "SELECT COUNT(*) as count FROM documents WHERE organization = ?"
+    params = [current_user["org_id"]]
+    
+    if current_user.get("role") == "Plant Manager":
+        query += " AND plant = ?"
+        params.append(current_user["plant_id"])
+        
+    cursor.execute(query, tuple(params))
     num_docs = cursor.fetchone()["count"]
     
-    # Ideally, Qdrant counts would be filtered by payload {"organization": current_user["org_id"]}
-    # Defaulting to estimated count for now
-    cursor.execute("SELECT SUM(chunk_count) as count FROM document_versions v JOIN documents d ON v.document_id = d.id WHERE d.organization = ?", (current_user["org_id"],))
+    # Ideally, Qdrant counts would be filtered by payload
+    vector_query = "SELECT SUM(chunk_count) as count FROM document_versions v JOIN documents d ON v.document_id = d.id WHERE d.organization = ?"
+    vector_params = [current_user["org_id"]]
+    if current_user.get("role") == "Plant Manager":
+        vector_query += " AND d.plant = ?"
+        vector_params.append(current_user["plant_id"])
+        
+    cursor.execute(vector_query, tuple(vector_params))
     row = cursor.fetchone()
     vector_count = row["count"] if row and row["count"] else 0
     conn.close()

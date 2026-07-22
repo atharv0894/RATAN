@@ -191,10 +191,12 @@ erDiagram
 ---
 
 ## ✨ Key Features
-- **Multi-tenant Architecture**: Strict data isolation by Organization, Plant, and Department.
+- **Hardened Multi-Tenant Architecture**: Strict, cryptographically enforced data isolation by Organization, Plant, and Department. Vector searches, documents, and chat histories are completely isolated.
+- **Enterprise Role-Based Access Control (RBAC)**: Fine-grained permissions isolating SuperAdmins from Tenant Admins, mitigating IDOR and privilege escalation vulnerabilities.
 - **Document Lifecycle & Versioning**: Immutable document version tracking, deduplication via SHA-256 checksums, and soft-delete retention.
-- **Enterprise RAG & Search**: MMR (Maximal Marginal Relevance) based semantic search with dynamic metadata filtering.
-- **Role-Based Access Control (RBAC)**: Fine-grained permissions and action-based access.
+- **Enterprise RAG & Search**: MMR (Maximal Marginal Relevance) based semantic search with dynamic metadata filtering. Protection against LLM prompt injection and tenant-hopping attacks.
+- **Knowledge Graph Extraction**: Automated extraction of entities, roles, documents, and relationships visualized via Force-Directed Graphs.
+- **Premium Design System**: A modernized, enterprise-grade user interface with native Light and Dark theme switching using dynamic CSS tokens.
 - **Operations Dashboard**: Real-time analytics on token usage, system health, storage, and processing jobs.
 - **Platform Administration**: SuperAdmin portal for managing global tenants, configurations, and maintenance tasks.
 
@@ -255,8 +257,14 @@ erDiagram
 - [x] AI Knowledge Assistant
 - [x] Dashboard & Analytics
 - [x] Platform Administration
+- [x] Premium Enterprise UI/UX Design System
+- [x] Knowledge Graph Extraction & Visualization
 - [ ] Predictive Maintenance Workflows
 - [ ] Live IoT Integration
+
+## 📚 Detailed Documentation
+- [Frontend Documentation](./frontend/README.md): Details on the Next.js architecture, Tailwind CSS design system, and state management.
+- [Backend Documentation](./backend/README.md): Details on the FastAPI architecture, RAG pipelines, Qdrant vectors, and SQLite/TiDB storage.
 
 ## 📄 License
 MIT License. See `LICENSE` for details.

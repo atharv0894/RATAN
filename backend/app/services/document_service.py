@@ -40,7 +40,7 @@ class DocumentService:
                 sha256_hash.update(byte_block)
         return sha256_hash.hexdigest()
 
-    def process_and_index(self, filename: str, file_path: str, user_id: str, org_id: str, plant_id: str, dept_id: str, metadata: dict = None, is_reindex: bool = False):
+    def process_and_index(self, filename: str, file_path: str, user_id: str, org_id: str, plant_id: str, dept_id: str, metadata: dict = None, is_reindex: bool = False, background_tasks = None):
         logging.info(f"[Upload lifecycle] Upload completed for {filename}")
         
         # 1. Validation
@@ -96,7 +96,7 @@ class DocumentService:
                 
             # 3. Storage
             ext = os.path.splitext(filename)[1].lower()
-            storage_path = f"documents/{document_id}/v{next_v}/original{ext}"
+            storage_path = f"organizations/{org_id}/documents/{document_id}/v{next_v}/original{ext}"
             
             with open(file_path, "rb") as f:
                 self.storage_service.save(f, storage_path)
@@ -134,7 +134,44 @@ class DocumentService:
             cursor.execute("UPDATE documents SET status = 'PROCESSING' WHERE id = ?", (document_id,))
             conn.commit()
             audit_repo.log("UPLOAD", version_id, "PROCESSING", user_id=user_id)
+            if background_tasks:
+                background_tasks.add_task(
+                    self._run_parsing_and_chunking,
+                    file_path=file_path,
+                    filename=filename,
+                    document_id=document_id,
+                    version_id=version_id,
+                    job_id=job_id,
+                    next_v=next_v,
+                    mime_type=mime_type,
+                    start_time=start_time,
+                    user_id=user_id
+                )
+                return document_id
+                
+            self._run_parsing_and_chunking(
+                file_path=file_path,
+                filename=filename,
+                document_id=document_id,
+                version_id=version_id,
+                job_id=job_id,
+                next_v=next_v,
+                mime_type=mime_type,
+                start_time=start_time,
+                user_id=user_id
+            )
+            return document_id
             
+        except Exception as e:
+            logging.error(f"[Upload lifecycle] Error initiating upload: {str(e)}")
+            raise e
+        finally:
+            conn.close()
+
+    def _run_parsing_and_chunking(self, file_path: str, filename: str, document_id: str, version_id: str, job_id: str, next_v: int, mime_type: str, start_time: float, user_id: str):
+        conn = get_db_connection()
+        audit_repo = AuditRepository(conn)
+        try:
             # 5. Parsing & Extraction
             parser = ParserFactory.get_parser(file_path)
             parsed_doc = parser.parse(file_path, filename=filename, use_ocr=True)
@@ -142,6 +179,7 @@ class DocumentService:
             # Update metadata from parsed doc if any
             if parsed_doc.metadata:
                 # Mime Type
+                cursor = conn.cursor()
                 if 'mime_type' in parsed_doc.metadata and parsed_doc.metadata['mime_type'] != mime_type:
                     cursor.execute("UPDATE document_versions SET mime_type = ? WHERE id = ?", (parsed_doc.metadata['mime_type'], version_id))
                 
@@ -149,7 +187,6 @@ class DocumentService:
                 update_fields = []
                 params = []
                 for key in ['description', 'category', 'equipment', 'language', 'author']:
-                    # Only apply extracted metadata if the document doesn't already have it
                     if key in parsed_doc.metadata:
                         update_fields.append(f"{key} = COALESCE({key}, ?)")
                         params.append(parsed_doc.metadata[key])
@@ -158,12 +195,19 @@ class DocumentService:
                     cursor.execute(f"UPDATE documents SET {', '.join(update_fields)} WHERE id = ?", tuple(params))
             
             
+            cursor = conn.cursor()
+            cursor.execute("SELECT organization, plant_id, department_id FROM documents WHERE id = ?", (document_id,))
+            doc_row = cursor.fetchone()
+
             # 6. Chunking
             chunker = Chunker(max_chars=1500, overlap_chars=200)
             chunks, metadatas, chunk_ids = [], [], []
             
             for page in parsed_doc.pages:
                 base_meta = {
+                    "organization_id": doc_row["organization"],
+                    "plant_id": doc_row["plant_id"],
+                    "department_id": doc_row["department_id"],
                     "filename": filename, 
                     "page": page.page_number,
                     "document_id": document_id,
@@ -171,18 +215,33 @@ class DocumentService:
                     "version_number": next_v,
                     "is_latest": 1
                 }
-                for info in chunker.chunk_page_with_metadata(page, base_meta):
+                
+                page_chunks = chunker.chunk_page_with_metadata(page, base_meta)
+                for info in page_chunks:
                     info['metadata']['heading'] = info['metadata'].get('section', '')
                     chunks.append(info['text'])
                     metadatas.append(info['metadata'])
                     chunk_ids.append(info['chunk_id'])
+                    
+                    # Extract entities for Knowledge Graph
+                    extracted = self.entity_extractor.extract_from_text(info['text'])
+                    if extracted:
+                        self.entity_extractor.save_entities(
+                            document_id=document_id,
+                            chunk_id=info['chunk_id'],
+                            page_number=page.page_number,
+                            section=info['metadata']['heading'],
+                            entities=extracted
+                        )
 
             if chunks:
+                cursor = conn.cursor()
                 cursor.execute("UPDATE processing_jobs SET status = 'INDEXING', updated_at = ? WHERE id = ?", (time.time(), job_id))
                 cursor.execute("UPDATE document_versions SET status = 'INDEXING' WHERE id = ?", (version_id,))
                 conn.commit()
                 self.indexer.index_chunks(chunks, metadatas=metadatas, chunk_ids=chunk_ids, document_id=document_id, filename=filename)
                 
+            cursor = conn.cursor()
             cursor.execute("""
                 UPDATE document_versions 
                 SET chunk_count = ?, vector_count = ?, status = 'READY'
@@ -194,27 +253,26 @@ class DocumentService:
             conn.commit()
             
             audit_repo.log("INDEX", version_id, "READY", user_id=user_id, execution_time_ms=int((time.time() - start_time)*1000))
-            return document_id
             
         except Exception as e:
-            if 'version_id' in locals():
-                cursor = conn.cursor()
-                cursor.execute("UPDATE document_versions SET status = 'FAILED' WHERE id = ?", (version_id,))
-                cursor.execute("UPDATE documents SET status = 'FAILED' WHERE id = ?", (document_id,))
-                if 'job_id' in locals():
-                    cursor.execute("UPDATE processing_jobs SET status = 'FAILED', error_message = ?, finished_at = ? WHERE id = ?", 
-                                   (str(e), time.time(), job_id))
-                conn.commit()
-                audit_repo.log("FAILED_INDEX", version_id, "FAILED", user_id=user_id)
+            cursor = conn.cursor()
+            cursor.execute("UPDATE document_versions SET status = 'FAILED' WHERE id = ?", (version_id,))
+            cursor.execute("UPDATE documents SET status = 'FAILED' WHERE id = ?", (document_id,))
+            cursor.execute("UPDATE processing_jobs SET status = 'FAILED', error_message = ?, finished_at = ? WHERE id = ?", 
+                           (str(e), time.time(), job_id))
+            conn.commit()
+            audit_repo.log("FAILED_INDEX", version_id, "FAILED", user_id=user_id)
             logging.error(f"[Indexing lifecycle] Indexing failed: {str(e)}")
-            raise e
         finally:
             conn.close()
+            # Clean up the temporary file
+            if os.path.exists(file_path):
+                os.remove(file_path)
 
-    def get_all_documents(self):
+    def get_all_documents(self, org_id: str):
         conn = get_db_connection()
         doc_repo = DocumentRepository(conn)
-        docs = doc_repo.list_latest_versions()
+        docs = doc_repo.list_latest_versions(org_id)
         conn.close()
         # Map to V1 response format for API compatibility
         return [{
@@ -229,7 +287,7 @@ class DocumentService:
             "is_deleted": False
         } for d in docs]
 
-    def get_document(self, document_id: str):
+    def get_document(self, document_id: str, org_id: str):
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute("""
@@ -240,18 +298,18 @@ class DocumentService:
                    d.deleted_at, d.deleted_by_user_id, d.delete_reason
             FROM documents d
             LEFT JOIN document_versions v ON d.id = v.document_id AND v.is_latest = 1
-            WHERE d.id = ?
-        """, (document_id,))
+            WHERE d.id = ? AND d.organization = ?
+        """, (document_id, org_id))
         row = cursor.fetchone()
         conn.close()
         return dict(row) if row else None
 
-    def delete_document(self, document_id: str, user_id: str, reason: str = "User Requested"):
+    def delete_document(self, document_id: str, user_id: str, org_id: str, reason: str = "User Requested"):
         conn = get_db_connection()
         doc_repo = DocumentRepository(conn)
         audit_repo = AuditRepository(conn)
         
-        doc = self.get_document(document_id)
+        doc = self.get_document(document_id, org_id)
         if not doc:
             return False
             
@@ -263,6 +321,19 @@ class DocumentService:
 
         try:
             doc_repo.soft_delete_document(document_id, user_id, reason)
+            
+            # Remove vectors from Qdrant associated with this document ID (Option A)
+            try:
+                self.indexer.vector_store.delete_by_document_id(document_id)
+                logging.info(f"Successfully deleted vectors for document_id={document_id} from Qdrant.")
+                
+                # Safety check for orphaned vectors
+                remaining_vectors = self.indexer.vector_store.count_by_document_id(document_id)
+                if remaining_vectors > 0:
+                    logging.error(f"Failed to fully delete vectors for document_id={document_id}. {remaining_vectors} vectors remain.")
+            except Exception as vector_e:
+                logging.error(f"Failed to delete vectors for document_id={document_id}: {vector_e}")
+                
             audit_repo.log("SOFT_DELETE", document_id, "Success", user_id=user_id)
             return True
         except Exception as e:
@@ -277,12 +348,12 @@ class DocumentService:
         finally:
             conn.close()
 
-    def restore_document(self, document_id: str, user_id: str):
+    def restore_document(self, document_id: str, user_id: str, org_id: str):
         conn = get_db_connection()
         doc_repo = DocumentRepository(conn)
         audit_repo = AuditRepository(conn)
         
-        doc = self.get_document(document_id)
+        doc = self.get_document(document_id, org_id)
         if not doc:
             return False
             
@@ -299,12 +370,12 @@ class DocumentService:
         finally:
             conn.close()
 
-    def update_metadata(self, document_id: str, metadata: dict, user_id: str):
+    def update_metadata(self, document_id: str, metadata: dict, user_id: str, org_id: str):
         conn = get_db_connection()
         cursor = conn.cursor()
         audit_repo = AuditRepository(conn)
         
-        doc = self.get_document(document_id)
+        doc = self.get_document(document_id, org_id)
         if not doc:
             conn.close()
             return False

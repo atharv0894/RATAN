@@ -3,7 +3,7 @@ import uuid
 import tempfile
 import shutil
 from typing import List, Optional
-from fastapi import APIRouter, UploadFile, File, Depends, Form
+from fastapi import APIRouter, UploadFile, File, Depends, Form, BackgroundTasks
 from pydantic import BaseModel
 import json
 from app.services.dependencies import get_document_service, get_current_user, RequireRole, get_tenant_context
@@ -27,8 +27,14 @@ class DocumentResponse(BaseModel):
     language: Optional[str] = None
     author: Optional[str] = None
 
+class ChunkResponse(BaseModel):
+    chunk_id: str
+    text: str
+    metadata: dict
+
 @router.post("/upload", response_model=APISuccessResponse)
 async def upload_documents(
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     metadata: str = Form(None, description="Optional JSON string for metadata (title, description, category, equipment, language, author)"),
     current_user: dict = Depends(RequireRole(["Admin", "Plant Manager", "Maintenance Engineer", "Quality Engineer"]))
@@ -67,7 +73,8 @@ async def upload_documents(
             org_id=current_user["org_id"],
             plant_id=current_user.get("plant_id") or "Unknown",
             dept_id=current_user.get("department_id") or "Unknown",
-            metadata=meta_dict
+            metadata=meta_dict,
+            background_tasks=background_tasks
         )
         return APISuccessResponse(data={
             "status": "UPLOADED",
@@ -88,10 +95,10 @@ async def upload_documents(
     except Exception as e:
         import traceback
         traceback.print_exc()
-        raise AppException(500, "INTERNAL_ERROR", str(e))
-    finally:
+        # Fallback cleanup if something failed before the background task was dispatched
         if os.path.exists(temp_path):
             os.remove(temp_path)
+        raise AppException(500, "INTERNAL_ERROR", str(e))
 
 @router.get("", response_model=APIPaginatedResponse[DocumentResponse])
 def list_documents(
@@ -100,7 +107,7 @@ def list_documents(
     current_user: dict = Depends(get_current_user)
 ):
     doc_service = get_document_service()
-    docs = doc_service.get_all_documents()
+    docs = doc_service.get_all_documents(current_user["org_id"])
     
     # In a real impl, we'd paginate at the DB level, but doing manual slicing for mock hackathon code
     start = (page - 1) * limit
@@ -136,7 +143,7 @@ def list_documents(
 @router.get("/{document_id}", response_model=APISuccessResponse[DocumentResponse])
 def get_document(document_id: str, current_user: dict = Depends(get_current_user)):
     doc_service = get_document_service()
-    doc = doc_service.get_document(document_id)
+    doc = doc_service.get_document(document_id, current_user["org_id"])
     if not doc:
         raise NotFoundError("Document", document_id)
         
@@ -155,6 +162,15 @@ def get_document(document_id: str, current_user: dict = Depends(get_current_user
         author=doc.get("author")
     ))
 
+@router.get("/chunks/{chunk_id}", response_model=APISuccessResponse[ChunkResponse])
+def get_document_chunk(chunk_id: str, current_user: dict = Depends(get_current_user)):
+    from app.rag.vector_store import VectorStore
+    vs = VectorStore()
+    chunk = vs.get_by_chunk_id(chunk_id)
+    if not chunk or chunk.get("metadata", {}).get("organization_id") != current_user["org_id"]:
+        raise NotFoundError("Chunk", chunk_id)
+    return APISuccessResponse(data=ChunkResponse(**chunk))
+
 @router.delete("/{document_id}", response_model=APISuccessResponse)
 def delete_document(
     document_id: str,
@@ -162,7 +178,7 @@ def delete_document(
 ):
     doc_service = get_document_service()
     try:
-        success = doc_service.delete_document(document_id, user_id=current_user["id"])
+        success = doc_service.delete_document(document_id, user_id=current_user["id"], org_id=current_user["org_id"])
         if not success:
             raise NotFoundError("Document", document_id)
         return APISuccessResponse(data={"message": "Document soft-deleted successfully."})
@@ -181,7 +197,7 @@ def restore_document(
 ):
     doc_service = get_document_service()
     try:
-        success = doc_service.restore_document(document_id, user_id=current_user["id"])
+        success = doc_service.restore_document(document_id, user_id=current_user["id"], org_id=current_user["org_id"])
         if not success:
             raise NotFoundError("Document", document_id)
         return APISuccessResponse(data={"message": "Document restored successfully."})
@@ -206,7 +222,7 @@ def update_metadata(
 ):
     doc_service = get_document_service()
     try:
-        success = doc_service.update_metadata(document_id, request.dict(exclude_unset=True), user_id=current_user["id"])
+        success = doc_service.update_metadata(document_id, request.dict(exclude_unset=True), user_id=current_user["id"], org_id=current_user["org_id"])
         if not success:
             raise NotFoundError("Document", document_id)
         return APISuccessResponse(data={"message": "Metadata updated successfully."})

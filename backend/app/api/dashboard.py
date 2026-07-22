@@ -16,7 +16,7 @@ def get_overview(
     tenant: dict = Depends(get_tenant_context),
     service: DashboardService = Depends(get_dashboard_service)
 ):
-    data = service.get_overview(tenant["organization_id"])
+    data = service.get_overview(tenant["organization"])
     return APISuccessResponse(data=data)
 
 @router.get("/documents", response_model=APISuccessResponse)
@@ -25,7 +25,7 @@ def get_documents_analytics(
     tenant: dict = Depends(get_tenant_context),
     service: DashboardService = Depends(get_dashboard_service)
 ):
-    data = service.get_document_analytics(tenant["organization_id"])
+    data = service.get_document_analytics(tenant["organization"])
     return APISuccessResponse(data=data)
 
 @router.get("/processing", response_model=APISuccessResponse)
@@ -34,7 +34,7 @@ def get_processing_analytics(
     tenant: dict = Depends(get_tenant_context),
     service: DashboardService = Depends(get_dashboard_service)
 ):
-    data = service.get_processing_analytics(tenant["organization_id"])
+    data = service.get_processing_analytics(tenant["organization"])
     return APISuccessResponse(data=data)
 
 @router.get("/search", response_model=APISuccessResponse)
@@ -43,7 +43,7 @@ def get_search_analytics(
     tenant: dict = Depends(get_tenant_context),
     service: DashboardService = Depends(get_dashboard_service)
 ):
-    data = service.get_search_analytics(tenant["organization_id"])
+    data = service.get_search_analytics(tenant["organization"])
     return APISuccessResponse(data=data)
 
 @router.get("/ai", response_model=APISuccessResponse)
@@ -52,7 +52,7 @@ def get_ai_analytics(
     tenant: dict = Depends(get_tenant_context),
     service: DashboardService = Depends(get_dashboard_service)
 ):
-    data = service.get_ai_analytics(tenant["organization_id"])
+    data = service.get_ai_analytics(tenant["organization"])
     return APISuccessResponse(data=data)
 
 @router.get("/users", response_model=APISuccessResponse)
@@ -61,7 +61,7 @@ def get_users_analytics(
     tenant: dict = Depends(get_tenant_context),
     service: DashboardService = Depends(get_dashboard_service)
 ):
-    data = service.get_user_analytics(tenant["organization_id"])
+    data = service.get_user_analytics(tenant["organization"])
     return APISuccessResponse(data=data)
 
 @router.get("/storage", response_model=APISuccessResponse)
@@ -70,7 +70,7 @@ def get_storage_analytics(
     tenant: dict = Depends(get_tenant_context),
     service: DashboardService = Depends(get_dashboard_service)
 ):
-    data = service.get_storage_analytics(tenant["organization_id"])
+    data = service.get_storage_analytics(tenant["organization"])
     return APISuccessResponse(data=data)
 
 @router.get("/system", response_model=APISuccessResponse)
@@ -88,7 +88,7 @@ def get_recent_activity(
     tenant: dict = Depends(get_tenant_context),
     service: DashboardService = Depends(get_dashboard_service)
 ):
-    data = service.get_recent_activity(tenant["organization_id"], limit=limit)
+    data = service.get_recent_activity(tenant["organization"], limit=limit)
     return APISuccessResponse(data={"activity": data})
 
 @router.get("/alerts", response_model=APISuccessResponse)
@@ -97,5 +97,5 @@ def get_alerts(
     tenant: dict = Depends(get_tenant_context),
     service: DashboardService = Depends(get_dashboard_service)
 ):
-    data = service.get_alerts(tenant["organization_id"])
+    data = service.get_alerts(tenant["organization"])
     return APISuccessResponse(data={"alerts": data})

@@ -1,6 +1,7 @@
 import os
 import pymysql
 import logging
+import queue
 
 class TiDBCursorWrapper:
     def __init__(self, cursor):
@@ -43,8 +44,9 @@ class TiDBCursorWrapper:
         self.cursor.close()
 
 class TiDBConnectionWrapper:
-    def __init__(self, conn):
+    def __init__(self, conn, pool=None):
         self.conn = conn
+        self.pool = pool
         
     def cursor(self):
         # We use DictCursor to mimic sqlite3.Row dict-like access
@@ -57,7 +59,15 @@ class TiDBConnectionWrapper:
         self.conn.rollback()
         
     def close(self):
-        self.conn.close()
+        if self.pool:
+            # Important: rollback any uncommitted transaction before returning to pool
+            try:
+                self.conn.rollback()
+            except:
+                pass
+            self.pool.release(self.conn)
+        else:
+            self.conn.close()
 
     def execute(self, query, params=()):
         # Some legacy code might call conn.execute directly (like PRAGMA foreign_keys = ON)
@@ -68,14 +78,48 @@ class TiDBConnectionWrapper:
         cursor.execute(query, params)
         return cursor
 
+class SimpleConnectionPool:
+    def __init__(self, size=10):
+        self.size = size
+        self.pool = queue.Queue(maxsize=size)
+
+    def _create_conn(self):
+        return pymysql.connect(
+            host=os.environ.get("TIDB_HOST"),
+            port=int(os.environ.get("TIDB_PORT", 4000)),
+            user=os.environ.get("TIDB_USER"),
+            password=os.environ.get("TIDB_PASSWORD"),
+            database=os.environ.get("TIDB_DATABASE", "ratan_db"),
+            ssl_verify_cert=True,
+            ssl_verify_identity=True
+        )
+
+    def get_conn(self):
+        try:
+            conn = self.pool.get_nowait()
+            try:
+                conn.ping(reconnect=True)
+            except:
+                conn = self._create_conn()
+            return conn
+        except queue.Empty:
+            return self._create_conn()
+
+    def release(self, conn):
+        try:
+            self.pool.put_nowait(conn)
+        except queue.Full:
+            try:
+                conn.close()
+            except:
+                pass
+
+_tidb_pool = None
+
 def get_tidb_connection():
-    conn = pymysql.connect(
-        host=os.environ.get("TIDB_HOST"),
-        port=int(os.environ.get("TIDB_PORT", 4000)),
-        user=os.environ.get("TIDB_USER"),
-        password=os.environ.get("TIDB_PASSWORD"),
-        database=os.environ.get("TIDB_DATABASE", "ratan_db"),
-        ssl_verify_cert=True,
-        ssl_verify_identity=True
-    )
-    return TiDBConnectionWrapper(conn)
+    global _tidb_pool
+    if _tidb_pool is None:
+        _tidb_pool = SimpleConnectionPool(size=20)
+        
+    conn = _tidb_pool.get_conn()
+    return TiDBConnectionWrapper(conn, _tidb_pool)

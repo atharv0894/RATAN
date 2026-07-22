@@ -10,10 +10,13 @@ class AdminService:
     # ORGANIZATIONS
     # -----------------------------
     @staticmethod
-    def get_organizations(skip: int = 0, limit: int = 50) -> List[dict]:
+    def get_organizations(skip: int = 0, limit: int = 50, org_id: str = None) -> List[dict]:
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM organizations WHERE is_deleted = 0 ORDER BY created_at DESC LIMIT ? OFFSET ?", (limit, skip))
+        if org_id:
+            cursor.execute("SELECT * FROM organizations WHERE id = ? AND is_deleted = 0", (org_id,))
+        else:
+            cursor.execute("SELECT * FROM organizations WHERE is_deleted = 0 ORDER BY created_at DESC LIMIT ? OFFSET ?", (limit, skip))
         orgs = cursor.fetchall()
         conn.close()
         return [dict(o) for o in orgs]
@@ -255,15 +258,24 @@ class AdminService:
     # AUDIT LOGS
     # -----------------------------
     @staticmethod
-    def get_audit_logs(skip: int = 0, limit: int = 50) -> List[dict]:
+    def get_audit_logs(skip: int = 0, limit: int = 50, org_id: str = None) -> List[dict]:
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute("""
-            SELECT a.id, a.action, a.resource, a.status, a.ip_address, a.created_at, u.email as user_email
-            FROM audit_logs a
-            LEFT JOIN users u ON a.user_id = u.id
-            ORDER BY a.created_at DESC LIMIT ? OFFSET ?
-        """, (limit, skip))
+        if org_id:
+            cursor.execute("""
+                SELECT a.id, a.action, a.resource, a.status, a.ip_address, a.created_at, u.email as user_email
+                FROM audit_logs a
+                LEFT JOIN users u ON a.user_id = u.id
+                WHERE u.org_id = ?
+                ORDER BY a.created_at DESC LIMIT ? OFFSET ?
+            """, (org_id, limit, skip))
+        else:
+            cursor.execute("""
+                SELECT a.id, a.action, a.resource, a.status, a.ip_address, a.created_at, u.email as user_email
+                FROM audit_logs a
+                LEFT JOIN users u ON a.user_id = u.id
+                ORDER BY a.created_at DESC LIMIT ? OFFSET ?
+            """, (limit, skip))
         logs = cursor.fetchall()
         conn.close()
         return [dict(l) for l in logs]
@@ -289,13 +301,20 @@ class AdminService:
         return ds.get_system_health()
         
     @staticmethod
-    def get_system_statistics() -> dict:
+    def get_system_statistics(org_id: str = None) -> dict:
         conn = get_db_connection()
         cursor = conn.cursor()
-        stats = {
-            "total_organizations": cursor.execute("SELECT COUNT(*) FROM organizations WHERE is_deleted=0").fetchone()[0],
-            "total_users": cursor.execute("SELECT COUNT(*) FROM users WHERE is_deleted=0").fetchone()[0],
-            "total_documents": cursor.execute("SELECT COUNT(*) FROM documents WHERE deleted_at IS NULL").fetchone()[0]
-        }
+        if org_id:
+            stats = {
+                "total_organizations": 1,
+                "total_users": cursor.execute("SELECT COUNT(*) FROM users WHERE org_id = ? AND is_deleted=0", (org_id,)).fetchone()[0],
+                "total_documents": cursor.execute("SELECT COUNT(*) FROM documents WHERE organization = ? AND deleted_at IS NULL", (org_id,)).fetchone()[0]
+            }
+        else:
+            stats = {
+                "total_organizations": cursor.execute("SELECT COUNT(*) FROM organizations WHERE is_deleted=0").fetchone()[0],
+                "total_users": cursor.execute("SELECT COUNT(*) FROM users WHERE is_deleted=0").fetchone()[0],
+                "total_documents": cursor.execute("SELECT COUNT(*) FROM documents WHERE deleted_at IS NULL").fetchone()[0]
+            }
         conn.close()
         return stats

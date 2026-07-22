@@ -66,10 +66,10 @@ class RAGService:
         filters = QueryAnalyzer.extract_filters(clean_query)
         
         final_where = {"is_latest": 1}
-        if base_where:
-            final_where.update(base_where)
         if filters:
             final_where.update(filters)
+        if base_where:
+            final_where.update(base_where)
             
         # 3. Query Expansion
         expanded_query = QueryAnalyzer.expand_query(clean_query)

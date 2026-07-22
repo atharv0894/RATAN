@@ -36,7 +36,7 @@ graph TD
     ServiceLayer --> |Data Access| RepositoryLayer[Repository Layer]
     
     %% Storage and Databases
-    RepositoryLayer --> |SQL Metadata| SQLite[(SQLite Database)]
+    RepositoryLayer --> |SQL Metadata| SQLDB[(SQLite / TiDB MySQL)]
     ServiceLayer --> |Vector Embeddings| Qdrant[(Qdrant Cloud)]
     ServiceLayer --> |Binary Objects| Backblaze[(Backblaze B2 Storage)]
     
@@ -53,14 +53,14 @@ graph TD
     
     class User,Frontend client;
     class APIGateway,Authentication,FastAPI,ServiceLayer,RepositoryLayer api;
-    class SQLite,Qdrant,Backblaze storage;
+    class SQLDB,Qdrant,Backblaze storage;
     class Groq,Gemini external;
 ```
 
 ### Component Breakdown
 1. **Next.js Frontend**: The presentation layer utilizing TailwindCSS for dynamic, responsive UI. Handles client-side state and communicates purely via REST.
 2. **FastAPI Backend**: The core engine. Handles asynchronous routing, request validation via Pydantic, and strictly enforces tenant boundaries.
-3. **SQLite Metadata**: Stores relational structures: Tenants, Users, Document states, audit logs, and Chat session histories.
+3. **Relational Metadata (SQLite / TiDB MySQL)**: Stores relational structures: Tenants, Users, Document states, audit logs, and Chat session histories. The backend uses a smart translation wrapper to support both transparently.
 4. **Backblaze B2**: Immutable object storage containing the original physical PDF/Text files uploaded by users.
 5. **Qdrant Cloud**: A highly scalable vector database holding embedded text chunks. Allows for semantic similarity searches filtered by tenant metadata.
 6. **Groq (Primary LLM)**: Selected for ultra-low latency token generation, critical for conversational RAG flows.
@@ -131,7 +131,7 @@ graph TD
 
 ## 🗄️ Database Architecture
 
-RATAN utilizes SQLite (V2 Schema) as its primary metadata store, optimized with comprehensive indexing and referential integrity (Foreign Keys) to support multi-tenant enterprise features.
+RATAN utilizes **SQLite** for local development and **TiDB Cloud (MySQL)** for production. It uses a custom smart translation wrapper to dynamically translate SQLite queries to MySQL syntax on the fly, optimized with comprehensive indexing and referential integrity (Foreign Keys) to support multi-tenant enterprise features.
 
 ```mermaid
 erDiagram
@@ -233,6 +233,13 @@ erDiagram
    QDRANT_API_KEY=your_qdrant_api_key
    GROQ_API_KEY=your_groq_api_key
    GOOGLE_API_KEY=your_gemini_api_key
+   
+   # Optional: TiDB Cloud (MySQL) Production Database
+   TIDB_HOST=your_tidb_host
+   TIDB_PORT=4000
+   TIDB_USER=your_tidb_user
+   TIDB_PASSWORD=your_tidb_password
+   TIDB_DATABASE=ratan_db
    ```
 
 4. **Run the Backend:**

@@ -14,7 +14,7 @@ graph TD
     Routers --> ServiceLayer[Service Layer]
     
     ServiceLayer --> |SQL CRUD| Repositories[Repository Layer]
-    Repositories --> SQLite[(SQLite Metadata)]
+    Repositories --> SQLDB[(SQLite / TiDB MySQL)]
     
     ServiceLayer --> |Vector Search| RAGEngine[RAG Engine]
     RAGEngine --> Qdrant[(Qdrant Cloud)]
@@ -28,7 +28,7 @@ graph TD
 
 ## 🧠 Core Technologies
 - **Framework**: FastAPI (Python 3.10+)
-- **Database**: SQLite (V2 Enterprise Schema)
+- **Database**: SQLite (Local) or TiDB Cloud MySQL (Production via smart wrapper)
 - **Vector Store**: Qdrant Cloud
 - **Object Storage**: Backblaze B2
 - **AI Models**: Groq (Primary), Gemini (Fallback)

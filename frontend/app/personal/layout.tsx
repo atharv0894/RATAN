@@ -1,21 +1,29 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { MessageSquare, Database, Settings, User as UserIcon, LogOut, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 
 export default function PersonalLayout({ children }: { children: React.ReactNode }) {
   const { user, isLoading, logout } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mounted, setMounted] = useState(false);
+
+  // Auth routes that should NOT be blocked by this layout
+  const isAuthRoute = pathname.startsWith('/personal/login') || 
+                      pathname.startsWith('/personal/register') || 
+                      pathname.startsWith('/personal/verify-email') || 
+                      pathname.startsWith('/personal/email-verified') || 
+                      pathname.startsWith('/personal/google-callback');
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
   useEffect(() => {
-    if (!isLoading) {
+    if (!isLoading && !isAuthRoute) {
       if (!user) {
         router.push("/");
       } else if (user.account_type === "ORGANIZATION") {
@@ -24,7 +32,11 @@ export default function PersonalLayout({ children }: { children: React.ReactNode
         router.push("/super-admin");
       }
     }
-  }, [user, isLoading, router]);
+  }, [user, isLoading, router, isAuthRoute]);
+
+  if (isAuthRoute) {
+    return <>{children}</>;
+  }
 
   if (!mounted || isLoading || !user || user.account_type !== "PERSONAL") {
     return <div className="h-screen bg-black flex items-center justify-center text-white">Loading Personal Workspace...</div>;

@@ -67,7 +67,7 @@ def get_tenant_telemetry(current_user: dict = Depends(RequireRole(["SuperAdmin"]
             COUNT(DISTINCT d.id) AS total_documents
         FROM organizations o
         LEFT JOIN users u ON u.org_id = o.id AND u.is_deleted = 0
-        LEFT JOIN documents d ON d.organization = o.id AND d.is_deleted = 0
+        LEFT JOIN documents d ON d.organization = o.id AND d.deleted_at IS NULL
         WHERE o.is_deleted = 0
         GROUP BY o.id, o.name, o.status
     """

@@ -111,7 +111,7 @@ export default function UploadPage() {
         {/* Metadata Form */}
         <div className="card-premium p-5 space-y-4">
           <h3 className="text-sm font-semibold text-foreground">Document Metadata <span className="text-muted-foreground font-normal">(optional — applies to all files)</span></h3>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {[
               { key: "category", label: "Category", placeholder: "e.g. Maintenance Manual" },
               { key: "equipment", label: "Equipment", placeholder: "e.g. Hydraulic Press HX-200" },

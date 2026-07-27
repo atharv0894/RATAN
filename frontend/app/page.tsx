@@ -24,7 +24,7 @@ export default function LandingPage() {
       <div className="absolute top-1/3 left-1/4 w-96 h-96 bg-blue-600/20 rounded-full blur-[100px] pointer-events-none" />
       <div className="absolute bottom-1/3 right-1/4 w-96 h-96 bg-purple-600/20 rounded-full blur-[100px] pointer-events-none" />
 
-      <div className="z-10 text-center mb-16 space-y-4 max-w-2xl">
+      <div className="z-10 text-center mb-16 space-y-4 max-w-2xl px-4 md:px-0">
         <div className="inline-flex items-center justify-center p-3 bg-white/5 rounded-2xl mb-4 border border-white/10 shadow-xl">
           <Cpu className="w-8 h-8 text-blue-400" />
         </div>
@@ -36,7 +36,7 @@ export default function LandingPage() {
         </p>
       </div>
 
-      <div className="z-10 grid md:grid-cols-2 gap-6 max-w-4xl w-full">
+      <div className="z-10 grid md:grid-cols-2 gap-6 max-w-4xl w-full px-4 md:px-0">
         
         {/* Personal AI Card */}
         <div className="group bg-gray-900/50 backdrop-blur-xl border border-gray-800 hover:border-blue-500/50 rounded-3xl p-8 transition-all hover:shadow-2xl hover:shadow-blue-500/10 flex flex-col items-center text-center">

@@ -61,8 +61,8 @@ export default function UsersPage() {
           <p className="text-xs text-muted-foreground">{filtered.length} users</p>
         </div>
 
-        <div className="card-premium overflow-hidden">
-          <table className="w-full text-sm">
+        <div className="card-premium overflow-x-auto hide-scrollbar">
+          <table className="w-full text-sm min-w-[700px]">
             <thead>
               <tr className="border-b border-border-default bg-surface-2/50">
                 {["User", "Email", "Role", "Status", "Joined", "Actions"].map((h) => (

@@ -31,29 +31,29 @@ export default function SystemAdminPage() {
       <div className="max-w-7xl mx-auto space-y-8">
         
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl md:text-3xl font-bold flex items-center gap-3 tracking-tight">
-              <ShieldAlert className="w-8 h-8 text-blue-500" />
+              <ShieldAlert className="w-8 h-8 text-blue-500 shrink-0" />
               Super Admin Control Plane
             </h1>
             <p className="text-gray-400 mt-2 text-sm max-w-2xl">
               Strictly isolated observability dashboard. Monitor system health, resource consumption, and enforce tenant-level suspensions globally.
             </p>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="hidden md:flex items-center gap-2 bg-blue-500/10 text-blue-400 px-4 py-2 rounded-full text-sm font-medium border border-blue-500/20">
-              <ActivitySquare className="w-4 h-4 animate-pulse" />
-              Live Telemetry Active
+          <div className="flex flex-wrap items-center gap-2 sm:gap-4 w-full md:w-auto">
+            <div className="flex flex-1 md:flex-none items-center justify-center gap-2 bg-blue-500/10 text-blue-400 px-4 py-2 rounded-full text-sm font-medium border border-blue-500/20">
+              <ActivitySquare className="w-4 h-4 animate-pulse shrink-0" />
+              <span className="truncate">Live Telemetry Active</span>
             </div>
             <button
               onClick={() => {
                 logout();
                 router.push("/super-admin/login");
               }}
-              className="flex items-center gap-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 px-4 py-2 rounded-full text-sm font-medium border border-red-500/20 transition-colors"
+              className="flex flex-1 md:flex-none items-center justify-center gap-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 px-4 py-2 rounded-full text-sm font-medium border border-red-500/20 transition-colors"
             >
-              <LogOut className="w-4 h-4" />
+              <LogOut className="w-4 h-4 shrink-0" />
               Sign Out
             </button>
           </div>

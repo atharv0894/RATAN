@@ -53,6 +53,10 @@ class RequireAccountType:
             raise AuthorizationError(f"Account type {account_type} is not authorized to access this resource.")
         return user
 
+RequirePersonalUser = RequireAccountType(["PERSONAL"])
+RequireOrganizationUser = RequireAccountType(["ORGANIZATION"])
+RequireSuperAdmin = RequireAccountType(["SUPER_ADMIN"])
+
 def get_tenant_context(user: dict = Depends(get_current_user)):
     return {
         "organization": user["org_id"],

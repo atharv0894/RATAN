@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 from typing import List, Optional
 from app.api.responses import APISuccessResponse
-from app.services.dependencies import RequireAccountType, get_db_connection
+from app.services.dependencies import RequirePersonalUser, get_db_connection
 
 router = APIRouter()
 
@@ -18,7 +18,7 @@ class ChatMessageCreate(BaseModel):
     parent_id: Optional[str] = None
 
 @router.get("", response_model=APISuccessResponse)
-def list_personal_chats(current_user: dict = Depends(RequireAccountType(["PERSONAL"]))):
+def list_personal_chats(current_user: dict = Depends(RequirePersonalUser)):
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("""
@@ -32,7 +32,7 @@ def list_personal_chats(current_user: dict = Depends(RequireAccountType(["PERSON
     return APISuccessResponse(data={"chats": chats})
 
 @router.post("", response_model=APISuccessResponse)
-def create_personal_chat(payload: ChatSessionCreate, current_user: dict = Depends(RequireAccountType(["PERSONAL"]))):
+def create_personal_chat(payload: ChatSessionCreate, current_user: dict = Depends(RequirePersonalUser)):
     session_id = str(uuid.uuid4())
     now = time.time()
     
@@ -48,7 +48,7 @@ def create_personal_chat(payload: ChatSessionCreate, current_user: dict = Depend
     return APISuccessResponse(data={"id": session_id, "title": payload.title})
 
 @router.get("/{session_id}", response_model=APISuccessResponse)
-def get_personal_chat(session_id: str, current_user: dict = Depends(RequireAccountType(["PERSONAL"]))):
+def get_personal_chat(session_id: str, current_user: dict = Depends(RequirePersonalUser)):
     conn = get_db_connection()
     cursor = conn.cursor()
     
@@ -65,7 +65,7 @@ def get_personal_chat(session_id: str, current_user: dict = Depends(RequireAccou
     return APISuccessResponse(data={"session": dict(session), "messages": messages})
 
 @router.delete("/{session_id}", response_model=APISuccessResponse)
-def delete_personal_chat(session_id: str, current_user: dict = Depends(RequireAccountType(["PERSONAL"]))):
+def delete_personal_chat(session_id: str, current_user: dict = Depends(RequirePersonalUser)):
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("UPDATE personal_chats SET status = 'DELETED', updated_at = ? WHERE id = ? AND user_id = ?", (time.time(), session_id, current_user["id"]))

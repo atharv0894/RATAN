@@ -2,12 +2,12 @@ import uuid
 import time
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from app.api.responses import APISuccessResponse
-from app.services.dependencies import RequireAccountType, get_db_connection
+from app.services.dependencies import RequirePersonalUser, get_db_connection
 
 router = APIRouter()
 
 @router.get("", response_model=APISuccessResponse)
-def list_personal_files(current_user: dict = Depends(RequireAccountType(["PERSONAL"]))):
+def list_personal_files(current_user: dict = Depends(RequirePersonalUser)):
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("""
@@ -22,7 +22,7 @@ def list_personal_files(current_user: dict = Depends(RequireAccountType(["PERSON
 @router.post("", response_model=APISuccessResponse)
 def upload_personal_file(
     file: UploadFile = File(...),
-    current_user: dict = Depends(RequireAccountType(["PERSONAL"]))
+    current_user: dict = Depends(RequirePersonalUser)
 ):
     # Dummy mock upload for architecture placeholder
     file_id = str(uuid.uuid4())
@@ -40,7 +40,7 @@ def upload_personal_file(
     return APISuccessResponse(data={"id": file_id, "filename": file.filename, "message": "File uploaded successfully."})
 
 @router.delete("/{file_id}", response_model=APISuccessResponse)
-def delete_personal_file(file_id: str, current_user: dict = Depends(RequireAccountType(["PERSONAL"]))):
+def delete_personal_file(file_id: str, current_user: dict = Depends(RequirePersonalUser)):
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("UPDATE personal_files SET deleted_at = ? WHERE id = ? AND user_id = ?", (time.time(), file_id, current_user["id"]))

@@ -11,9 +11,12 @@ interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<User>;
-  logout: () => Promise<void>;
-  refreshUser: () => Promise<void>;
+  loginPersonal: (e: string, p: string) => Promise<User>;
+  loginEnterprise: (e: string, p: string) => Promise<User>;
+  loginSuperAdmin: (e: string, p: string) => Promise<User>;
+  registerPersonal: (data: any) => Promise<void>;
+  registerEnterprise: (data: any) => Promise<void>;
+  logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -29,7 +32,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     try {
-      const { data } = await authApi.me();
+      const { data } = await authApi.get_me();
       setUser(data.data);
     } catch {
       clearTokens();
@@ -44,13 +47,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     refreshUser();
   }, [refreshUser]);
 
-  const login = async (email: string, password: string) => {
-    const { data } = await authApi.login(email, password);
-    const { access_token, refresh_token } = data.data;
-    setTokens(access_token, refresh_token);
-    const meRes = await authApi.me();
-    setUser(meRes.data.data);
-    return meRes.data.data;
+  const loginPersonal = async (email: string, pass: string) => {
+    const res = await authApi.login_personal(email, pass);
+    setTokens(res.data.data.access_token, res.data.data.refresh_token);
+    const userRes = await authApi.get_me();
+    setUser(userRes.data.data);
+    return userRes.data.data;
+  };
+
+  const loginEnterprise = async (email: string, pass: string) => {
+    const res = await authApi.login_enterprise(email, pass);
+    setTokens(res.data.data.access_token, res.data.data.refresh_token);
+    const userRes = await authApi.get_me();
+    setUser(userRes.data.data);
+    return userRes.data.data;
+  };
+
+  const loginSuperAdmin = async (email: string, pass: string) => {
+    const res = await authApi.login_super_admin(email, pass);
+    setTokens(res.data.data.access_token, res.data.data.refresh_token);
+    const userRes = await authApi.get_me();
+    setUser(userRes.data.data);
+    return userRes.data.data;
+  };
+
+  const registerPersonal = async (data: any) => {
+    await authApi.register_personal(data);
+  };
+
+  const registerEnterprise = async (data: any) => {
+    await authApi.register_enterprise(data);
   };
 
   const logout = async () => {
@@ -64,7 +90,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, isAuthenticated: !!user, login, logout, refreshUser }}>
+    <AuthContext.Provider value={{ 
+      user, isLoading, isAuthenticated: !!user, 
+      loginPersonal, loginEnterprise, loginSuperAdmin, 
+      registerPersonal, registerEnterprise, logout 
+    }}>
       {children}
     </AuthContext.Provider>
   );

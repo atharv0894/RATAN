@@ -104,20 +104,36 @@ api.interceptors.response.use(
 
 // Auth
 export const authApi = {
-  signup_personal: (data: any) => api.post("/auth/signup", data),
-  login: (username: string, password: string) => {
+  // Personal
+  register_personal: (data: any) => api.post("/personal/auth/register", data),
+  login_personal: (username: string, password: string) => {
     const form = new URLSearchParams();
     form.append("username", username);
     form.append("password", password);
-    return api.post("/auth/login", form, {
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    });
+    return api.post("/personal/auth/login", form, { headers: { "Content-Type": "application/x-www-form-urlencoded" }});
   },
-  register: (payload: { org_name: string; admin_email: string; admin_password: string; admin_name: string }) =>
-    api.post("/auth/register", payload),
-  me: () => api.get("/auth/me"),
+
+  // Enterprise
+  register_enterprise: (data: any) => api.post("/enterprise/auth/register", data),
+  login_enterprise: (username: string, password: string) => {
+    const form = new URLSearchParams();
+    form.append("username", username);
+    form.append("password", password);
+    return api.post("/enterprise/auth/login", form, { headers: { "Content-Type": "application/x-www-form-urlencoded" }});
+  },
+
+  // Super Admin
+  login_super_admin: (username: string, password: string) => {
+    const form = new URLSearchParams();
+    form.append("username", username);
+    form.append("password", password);
+    return api.post("/super-admin/auth/login", form, { headers: { "Content-Type": "application/x-www-form-urlencoded" }});
+  },
+
+  // Shared Auth
   refresh: (refresh_token: string) => api.post("/auth/refresh", { refresh_token }),
   logout: (refresh_token: string) => api.post("/auth/logout", { refresh_token }),
+  get_me: () => api.get("/auth/me"),
   changePassword: (old_password: string, new_password: string) =>
     api.patch("/auth/change-password", { old_password, new_password }),
   forgotPassword: (email: string) => api.post("/auth/forgot-password", { email }),

@@ -25,6 +25,7 @@ from app.services.auth_service import AuthService
 from app.services.session_service import SessionService
 from app.api.responses import APISuccessResponse
 from app.database.tidb import get_tidb_connection
+from app.exceptions import AuthenticationError
 
 router = APIRouter()
 
@@ -143,14 +144,42 @@ def _upsert_google_user(google_info: dict) -> dict:
 # ─── Endpoints ─────────────────────────────────────────────────────────────────
 
 
+import hmac
+import hashlib
+
+def _generate_state_token() -> str:
+    """Generate a stateless, signed state token using GOOGLE_CLIENT_SECRET"""
+    raw_state = secrets.token_urlsafe(32)
+    timestamp = str(int(time.time()))
+    payload = f"{raw_state}.{timestamp}"
+    signature = hmac.new(GOOGLE_CLIENT_SECRET.encode(), payload.encode(), hashlib.sha256).hexdigest()
+    return f"{payload}.{signature}"
+
+def _verify_state_token(state: str) -> bool:
+    """Verify the stateless state token"""
+    try:
+        raw_state, timestamp, signature = state.split(".")
+        payload = f"{raw_state}.{timestamp}"
+        expected_signature = hmac.new(GOOGLE_CLIENT_SECRET.encode(), payload.encode(), hashlib.sha256).hexdigest()
+        
+        if not hmac.compare_digest(signature, expected_signature):
+            return False
+            
+        # Check if expired (10 minutes)
+        if time.time() - int(timestamp) > 600:
+            return False
+            
+        return True
+    except Exception:
+        return False
+
 @router.get("/google")
 def google_oauth_start():
     """Return the Google OAuth authorization URL for the frontend to redirect to."""
     if not GOOGLE_CLIENT_ID:
         raise HTTPException(status_code=500, detail="Google OAuth is not configured on this server.")
 
-    state = secrets.token_urlsafe(32)
-    _pending_states[state] = time.time()
+    state = _generate_state_token()
 
     params = {
         "client_id": GOOGLE_CLIENT_ID,
@@ -174,9 +203,8 @@ def google_oauth_callback(code: str = Query(...), state: str = Query(...)):
     and redirect the browser to the frontend with tokens in the URL fragment.
     """
     # CSRF check
-    stored_time = _pending_states.pop(state, None)
-    if stored_time is None or (time.time() - stored_time) > 600:
-        raise HTTPException(status_code=400, detail="Invalid or expired OAuth state.")
+    if not _verify_state_token(state):
+        raise AuthenticationError("Invalid or expired OAuth state.")
 
     # Exchange code for tokens
     token_resp = requests.post(

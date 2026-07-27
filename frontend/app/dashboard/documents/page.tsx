@@ -101,19 +101,31 @@ export default function DocumentsPage() {
         {/* Document Table */}
         <div className="card-premium overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
+            <table className="w-full text-sm whitespace-nowrap">
+              <thead className="sticky top-0 bg-surface z-10">
                 <tr className="border-b border-border-default bg-surface-2/50">
-                  {["Document", "Status", "Version", "Chunks", "Category", "Uploaded", "Actions"].map((h) => (
-                    <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">
-                      {h}
-                    </th>
-                  ))}
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Document</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden md:table-cell">Version</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden lg:table-cell">Chunks</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden sm:table-cell">Category</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden sm:table-cell">Uploaded</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {isLoading
-                  ? Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} />)
+                  ? Array.from({ length: 5 }).map((_, i) => (
+                    <tr key={i} className="border-b border-border-default">
+                      <td className="px-4 py-3"><div className="skeleton h-4 rounded w-48" /></td>
+                      <td className="px-4 py-3"><div className="skeleton h-4 rounded w-16" /></td>
+                      <td className="px-4 py-3 hidden md:table-cell"><div className="skeleton h-4 rounded w-8" /></td>
+                      <td className="px-4 py-3 hidden lg:table-cell"><div className="skeleton h-4 rounded w-12" /></td>
+                      <td className="px-4 py-3 hidden sm:table-cell"><div className="skeleton h-4 rounded w-16" /></td>
+                      <td className="px-4 py-3 hidden sm:table-cell"><div className="skeleton h-4 rounded w-16" /></td>
+                      <td className="px-4 py-3"><div className="skeleton h-4 rounded w-12" /></td>
+                    </tr>
+                  ))
                   : filtered.length === 0
                   ? (
                     <tr>
@@ -132,23 +144,23 @@ export default function DocumentsPage() {
                           <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
                             <FileText className="w-4 h-4 text-primary" />
                           </div>
-                          <div>
-                            <p className="font-medium text-foreground">{truncate(doc.title || doc.filename, 40)}</p>
-                            <p className="text-[11px] text-muted-foreground">{doc.filename}</p>
+                          <div className="flex flex-col min-w-0">
+                            <p className="font-medium text-foreground truncate">{truncate(doc.title || doc.filename, 40)}</p>
+                            <p className="text-[11px] text-muted-foreground truncate">{doc.filename}</p>
                           </div>
                         </div>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         <DocStatusBadge status={doc.status} />
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground text-xs">v{doc.version_number}</td>
-                      <td className="px-4 py-3 text-muted-foreground text-xs">{doc.chunks.toLocaleString()}</td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3 text-muted-foreground text-xs hidden md:table-cell">v{doc.version_number}</td>
+                      <td className="px-4 py-3 text-muted-foreground text-xs hidden lg:table-cell">{doc.chunks.toLocaleString()}</td>
+                      <td className="px-4 py-3 hidden sm:table-cell">
                         {doc.category ? (
                           <span className="text-xs bg-accent/10 text-accent px-2 py-0.5 rounded-full">{doc.category}</span>
                         ) : <span className="text-muted-foreground/40 text-xs">—</span>}
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground text-xs whitespace-nowrap">Recent</td>
+                      <td className="px-4 py-3 text-muted-foreground text-xs whitespace-nowrap hidden sm:table-cell">Recent</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1">
                           <button onClick={() => setSelectedDoc(doc)} className="p-1.5 rounded-lg hover:bg-surface-2 text-muted-foreground hover:text-foreground transition-colors">

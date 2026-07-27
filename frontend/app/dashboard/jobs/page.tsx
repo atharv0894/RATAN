@@ -37,19 +37,27 @@ export default function JobsPage() {
 
         <div className="card-premium overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
+            <table className="w-full text-sm whitespace-nowrap">
+              <thead className="sticky top-0 bg-surface z-10">
                 <tr className="border-b border-border-default bg-surface-2/50">
-                  {["Job ID", "Type", "Target", "Status", "Retries", "Started"].map((h) => (
-                    <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{h}</th>
-                  ))}
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Job ID</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden sm:table-cell">Type</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden md:table-cell">Target</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden lg:table-cell">Retries</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden sm:table-cell">Started</th>
                 </tr>
               </thead>
               <tbody>
                 {isLoading ? (
                   Array.from({ length: 5 }).map((_, i) => (
                     <tr key={i} className="border-b border-border-default">
-                      {Array.from({ length: 6 }).map((_, j) => <td key={j} className="px-4 py-3"><div className="skeleton h-4 rounded w-20" /></td>)}
+                      <td className="px-4 py-3"><div className="skeleton h-4 rounded w-20" /></td>
+                      <td className="px-4 py-3 hidden sm:table-cell"><div className="skeleton h-4 rounded w-16" /></td>
+                      <td className="px-4 py-3 hidden md:table-cell"><div className="skeleton h-4 rounded w-20" /></td>
+                      <td className="px-4 py-3"><div className="skeleton h-4 rounded w-20" /></td>
+                      <td className="px-4 py-3 hidden lg:table-cell"><div className="skeleton h-4 rounded w-8" /></td>
+                      <td className="px-4 py-3 hidden sm:table-cell"><div className="skeleton h-4 rounded w-16" /></td>
                     </tr>
                   ))
                 ) : jobs.length === 0 ? (
@@ -62,16 +70,16 @@ export default function JobsPage() {
                 ) : jobs.map((job) => (
                   <tr key={job.id} className="border-b border-border-default/60 hover:bg-surface-2/30 transition-colors">
                     <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{job.id.slice(0, 8)}...</td>
-                    <td className="px-4 py-3 text-xs text-accent">{job.target_type}</td>
-                    <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{job.target_id.slice(0, 8)}...</td>
+                    <td className="px-4 py-3 text-xs text-accent hidden sm:table-cell">{job.target_type}</td>
+                    <td className="px-4 py-3 font-mono text-xs text-muted-foreground hidden md:table-cell">{job.target_id.slice(0, 8)}...</td>
                     <td className="px-4 py-3">
                       <span className={cn("status-badge text-[11px]", getStatusColor(job.status))}>
                         {job.status === "PROCESSING" && <Loader2 className="w-2.5 h-2.5 inline mr-1 animate-spin" />}
                         {job.status}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-xs text-muted-foreground text-center">{job.retry_count}</td>
-                    <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
+                    <td className="px-4 py-3 text-xs text-muted-foreground text-center hidden lg:table-cell">{job.retry_count}</td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap hidden sm:table-cell">
                       {job.started_at ? formatRelativeTime(job.started_at) : "—"}
                     </td>
                   </tr>

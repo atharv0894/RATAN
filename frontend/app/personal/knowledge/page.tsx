@@ -91,7 +91,7 @@ export default function PersonalKnowledgePage() {
         {view === 'list' ? (
           <div className="bg-(--surface) border border-(--border) rounded-2xl shadow-sm overflow-hidden flex flex-col">
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
+              <table className="w-full text-left border-collapse whitespace-nowrap">
                 <thead>
                   <tr className="border-b border-(--border) bg-(--surface-2)/50 text-(--text-secondary) text-xs uppercase tracking-wider">
                     <th className="p-4 font-semibold w-10 text-center"><input type="checkbox" className="rounded border-(--border) bg-(--bg)" /></th>

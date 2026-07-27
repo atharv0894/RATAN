@@ -61,57 +61,72 @@ export default function UsersPage() {
           <p className="text-xs text-muted-foreground">{filtered.length} users</p>
         </div>
 
-        <div className="card-premium overflow-x-auto hide-scrollbar">
-          <table className="w-full text-sm min-w-[700px]">
-            <thead>
-              <tr className="border-b border-border-default bg-surface-2/50">
-                {["User", "Email", "Role", "Status", "Joined", "Actions"].map((h) => (
-                  <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {isLoading ? (
-                Array.from({ length: 5 }).map((_, i) => (
-                  <tr key={i} className="border-b border-border-default">
-                    {Array.from({ length: 6 }).map((_, j) => <td key={j} className="px-4 py-3"><div className="skeleton h-4 rounded w-24" /></td>)}
-                  </tr>
-                ))
-              ) : filtered.map((user) => (
-                <tr key={user.id} className="border-b border-border-default/60 hover:bg-surface-2/30 transition-colors">
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-linear-to-br from-primary/30 to-accent/30 flex items-center justify-center text-xs font-bold text-white">
-                        {user.full_name?.charAt(0) ?? "U"}
-                      </div>
-                      <span className="font-medium text-foreground">{user.full_name}</span>
-                      {user.id === me?.id && <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full">You</span>}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground text-xs">{user.email}</td>
-                  <td className="px-4 py-3">
-                    <span className={cn("status-badge text-[11px]", getRoleColor(user.role))}>{user.role}</span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={cn("status-badge text-[11px]", user.status === "Active" ? "bg-success/10 text-success" : "bg-danger/10 text-danger")}>{user.status}</span>
-                  </td>
-                  <td className="px-4 py-3 text-xs text-muted-foreground">{user.created_at ? formatRelativeTime(user.created_at) : "—"}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-1">
-                      <button onClick={() => setEditUser({ id: user.id, full_name: user.full_name, status: user.status })} className="p-1.5 rounded-lg hover:bg-surface-2 text-muted-foreground hover:text-foreground">
-                        <Pencil className="w-3.5 h-3.5" />
-                      </button>
-                      {user.id !== me?.id && (
-                        <button onClick={() => { if (confirm("Delete this user?")) deleteMut.mutate(user.id); }} className="p-1.5 rounded-lg hover:bg-danger/10 text-muted-foreground hover:text-danger">
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  </td>
+        <div className="card-premium overflow-hidden flex flex-col">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm whitespace-nowrap">
+              <thead className="sticky top-0 bg-surface z-10">
+                <tr className="border-b border-border-default bg-surface-2/50">
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">User</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden md:table-cell">Email</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden sm:table-cell">Role</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden lg:table-cell">Joined</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {isLoading ? (
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <tr key={i} className="border-b border-border-default">
+                      <td className="px-4 py-3"><div className="skeleton h-4 rounded w-24" /></td>
+                      <td className="px-4 py-3 hidden md:table-cell"><div className="skeleton h-4 rounded w-32" /></td>
+                      <td className="px-4 py-3 hidden sm:table-cell"><div className="skeleton h-4 rounded w-16" /></td>
+                      <td className="px-4 py-3"><div className="skeleton h-4 rounded w-16" /></td>
+                      <td className="px-4 py-3 hidden lg:table-cell"><div className="skeleton h-4 rounded w-20" /></td>
+                      <td className="px-4 py-3"><div className="skeleton h-4 rounded w-12" /></td>
+                    </tr>
+                  ))
+                ) : filtered.map((user) => (
+                  <tr key={user.id} className="border-b border-border-default/60 hover:bg-surface-2/30 transition-colors">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-linear-to-br from-primary/30 to-accent/30 flex items-center justify-center text-xs font-bold text-white shrink-0">
+                          {user.full_name?.charAt(0) ?? "U"}
+                        </div>
+                        <div className="flex flex-col min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-foreground truncate">{user.full_name}</span>
+                            {user.id === me?.id && <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full shrink-0">You</span>}
+                          </div>
+                          <span className="text-[10px] text-muted-foreground truncate md:hidden">{user.email}</span>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground text-xs hidden md:table-cell">{user.email}</td>
+                    <td className="px-4 py-3 hidden sm:table-cell">
+                      <span className={cn("status-badge text-[11px]", getRoleColor(user.role))}>{user.role}</span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={cn("status-badge text-[11px]", user.status === "Active" ? "bg-success/10 text-success" : "bg-danger/10 text-danger")}>{user.status}</span>
+                    </td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground hidden lg:table-cell">{user.created_at ? formatRelativeTime(user.created_at) : "—"}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => setEditUser({ id: user.id, full_name: user.full_name, status: user.status })} className="p-1.5 rounded-lg hover:bg-surface-2 text-muted-foreground hover:text-foreground">
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        {user.id !== me?.id && (
+                          <button onClick={() => { if (confirm("Delete this user?")) deleteMut.mutate(user.id); }} className="p-1.5 rounded-lg hover:bg-danger/10 text-muted-foreground hover:text-danger">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 

@@ -49,19 +49,29 @@ export default function AuditLogsPage() {
 
         <div className="card-premium overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
+            <table className="w-full text-sm whitespace-nowrap">
+              <thead className="sticky top-0 bg-surface z-10">
                 <tr className="border-b border-border-default bg-surface-2/50">
-                  {["Time", "Action", "Resource", "Endpoint", "Status", "Latency", "IP"].map((h) => (
-                    <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">{h}</th>
-                  ))}
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Time</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Action</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden sm:table-cell">Resource</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden md:table-cell">Endpoint</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden lg:table-cell">Latency</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden sm:table-cell">IP</th>
                 </tr>
               </thead>
               <tbody>
                 {isLoading ? (
                   Array.from({ length: 10 }).map((_, i) => (
                     <tr key={i} className="border-b border-border-default">
-                      {Array.from({ length: 7 }).map((_, j) => <td key={j} className="px-4 py-3"><div className="skeleton h-4 rounded w-20" /></td>)}
+                      <td className="px-4 py-3"><div className="skeleton h-4 rounded w-20" /></td>
+                      <td className="px-4 py-3"><div className="skeleton h-4 rounded w-24" /></td>
+                      <td className="px-4 py-3 hidden sm:table-cell"><div className="skeleton h-4 rounded w-20" /></td>
+                      <td className="px-4 py-3 hidden md:table-cell"><div className="skeleton h-4 rounded w-32" /></td>
+                      <td className="px-4 py-3"><div className="skeleton h-4 rounded w-16" /></td>
+                      <td className="px-4 py-3 hidden lg:table-cell"><div className="skeleton h-4 rounded w-12" /></td>
+                      <td className="px-4 py-3 hidden sm:table-cell"><div className="skeleton h-4 rounded w-24" /></td>
                     </tr>
                   ))
                 ) : filtered.length === 0 ? (
@@ -77,11 +87,11 @@ export default function AuditLogsPage() {
                     <td className="px-4 py-2.5">
                       <span className="font-medium text-accent">{log.action}</span>
                     </td>
-                    <td className="px-4 py-2.5 max-w-40 truncate text-foreground-2">{log.resource}</td>
-                    <td className="px-4 py-2.5 text-muted-foreground max-w-50 truncate">{log.endpoint}</td>
+                    <td className="px-4 py-2.5 max-w-40 truncate text-foreground-2 hidden sm:table-cell">{log.resource}</td>
+                    <td className="px-4 py-2.5 text-muted-foreground max-w-50 truncate hidden md:table-cell">{log.endpoint}</td>
                     <td className="px-4 py-2.5"><StatusBadge status={log.status} /></td>
-                    <td className="px-4 py-2.5 text-muted-foreground">{log.execution_time_ms}ms</td>
-                    <td className="px-4 py-2.5 text-muted-foreground">{log.ip_address}</td>
+                    <td className="px-4 py-2.5 text-muted-foreground hidden lg:table-cell">{log.execution_time_ms}ms</td>
+                    <td className="px-4 py-2.5 text-muted-foreground hidden sm:table-cell">{log.ip_address}</td>
                   </tr>
                 ))}
               </tbody>

@@ -51,29 +51,29 @@ export default function TenantResourceTable() {
 
   return (
     <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden relative">
-      <div className="p-5 border-b border-gray-800 flex flex-col sm:flex-row sm:justify-between items-start sm:items-center gap-3 bg-gray-900/50">
+      <div className="p-5 border-b border-gray-800 flex justify-between items-center bg-gray-900/50">
         <h2 className="text-lg font-semibold text-white">Tenant Resource Footprint</h2>
-        <span className="text-xs text-gray-500 bg-gray-800 px-3 py-1 rounded-full whitespace-nowrap">Refreshes every 30s</span>
+        <span className="text-xs text-gray-500 bg-gray-800 px-3 py-1 rounded-full">Refreshes every 30s</span>
       </div>
       
       <div className="overflow-x-auto">
-        <table className="w-full text-sm text-left">
-          <thead className="text-xs text-gray-400 uppercase bg-gray-800/50 border-b border-gray-800">
+        <table className="w-full text-sm text-left whitespace-nowrap">
+          <thead className="text-xs text-gray-400 uppercase bg-gray-800/50 border-b border-gray-800 sticky top-0">
             <tr>
-              <th className="px-6 py-4 font-medium whitespace-nowrap">Organization Name</th>
-              <th className="px-6 py-4 font-medium whitespace-nowrap">Active Users</th>
-              <th className="px-6 py-4 font-medium whitespace-nowrap">Total Documents</th>
-              <th className="px-6 py-4 font-medium whitespace-nowrap">Status</th>
-              <th className="px-6 py-4 font-medium text-right whitespace-nowrap">Actions</th>
+              <th className="px-6 py-4 font-medium">Organization Name</th>
+              <th className="px-6 py-4 font-medium hidden sm:table-cell">Active Users</th>
+              <th className="px-6 py-4 font-medium hidden md:table-cell">Total Documents</th>
+              <th className="px-6 py-4 font-medium">Status</th>
+              <th className="px-6 py-4 font-medium text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-800">
             {data.map((tenant: any) => (
               <tr key={tenant.org_id} className="hover:bg-gray-800/30 transition-colors">
-                <td className="px-6 py-4 font-medium text-white whitespace-nowrap">{tenant.org_name}</td>
-                <td className="px-6 py-4 text-gray-300 whitespace-nowrap">{tenant.active_users}</td>
-                <td className="px-6 py-4 text-gray-300 whitespace-nowrap">{tenant.total_documents}</td>
-                <td className="px-6 py-4 whitespace-nowrap">
+                <td className="px-6 py-4 font-medium text-white">{tenant.org_name}</td>
+                <td className="px-6 py-4 text-gray-300 hidden sm:table-cell">{tenant.active_users}</td>
+                <td className="px-6 py-4 text-gray-300 hidden md:table-cell">{tenant.total_documents}</td>
+                <td className="px-6 py-4">
                   <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${
                     tenant.status === "Active" 
                       ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" 
@@ -82,7 +82,7 @@ export default function TenantResourceTable() {
                     {tenant.status}
                   </span>
                 </td>
-                <td className="px-6 py-4 text-right whitespace-nowrap">
+                <td className="px-6 py-4 text-right">
                   <button 
                     onClick={() => setConfirmModal({ isOpen: true, tenant })}
                     className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-colors ${
@@ -110,12 +110,12 @@ export default function TenantResourceTable() {
       {/* Confirmation Modal Safeguard */}
       {confirmModal.isOpen && confirmModal.tenant && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-gray-900 border border-gray-700 rounded-xl p-6 max-w-[90vw] md:max-w-md w-full shadow-2xl relative">
+          <div className="bg-gray-900 border border-gray-700 rounded-xl p-6 max-w-md w-full shadow-2xl relative">
             <div className="flex items-center gap-3 mb-4 text-amber-500">
-              <AlertTriangle className="w-6 h-6 shrink-0" />
+              <AlertTriangle className="w-6 h-6" />
               <h3 className="text-lg font-bold text-white">Confirm Action</h3>
             </div>
-            <p className="text-gray-300 text-sm mb-6 break-words">
+            <p className="text-gray-300 text-sm mb-6">
               Are you sure you want to {confirmModal.tenant.status === "Active" ? "suspend" : "reactivate"} 
               <strong className="text-white mx-1">{confirmModal.tenant.org_name}</strong>?
               {confirmModal.tenant.status === "Active" && (
@@ -124,20 +124,20 @@ export default function TenantResourceTable() {
                 </span>
               )}
             </p>
-            <div className="flex flex-col-reverse sm:flex-row justify-end gap-3">
+            <div className="flex justify-end gap-3">
               <button 
                 onClick={() => setConfirmModal({ isOpen: false, tenant: null })}
                 disabled={toggleMutation.isPending}
-                className="w-full sm:w-auto px-4 py-2 text-sm font-medium text-gray-300 hover:text-white bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors"
+                className="px-4 py-2 text-sm font-medium text-gray-300 hover:text-white bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors"
               >
                 Cancel
               </button>
               <button 
                 onClick={() => toggleMutation.mutate(confirmModal.tenant.org_id)}
                 disabled={toggleMutation.isPending}
-                className="w-full sm:w-auto px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors flex items-center justify-center gap-2"
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors flex items-center gap-2"
               >
-                {toggleMutation.isPending && <Loader2 className="w-4 h-4 animate-spin shrink-0" />}
+                {toggleMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
                 Confirm
               </button>
             </div>

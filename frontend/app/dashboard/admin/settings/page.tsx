@@ -129,7 +129,7 @@ export default function SystemSettingsPage() {
         )}
 
         {/* Global Action */}
-        <div className="card-premium p-6 flex items-center justify-between">
+        <div className="card-premium p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
             <h3 className="font-semibold text-foreground">Flush Cache</h3>
             <p className="text-sm text-muted-foreground mt-1">Clears Redis cache for all tenants. Use during high memory pressure.</p>
@@ -137,7 +137,7 @@ export default function SystemSettingsPage() {
           <button 
             onClick={handleFlushCache}
             disabled={flushing}
-            className="px-4 py-2 bg-danger/10 text-danger hover:bg-danger hover:text-white border border-danger/20 transition-colors rounded-lg text-sm font-medium disabled:opacity-50 flex items-center gap-2"
+            className="w-full sm:w-auto px-4 py-2 bg-danger/10 text-danger hover:bg-danger hover:text-white border border-danger/20 transition-colors rounded-lg text-sm font-medium disabled:opacity-50 flex justify-center items-center gap-2"
           >
             {flushing ? <RefreshCw className="w-4 h-4 animate-spin" /> : null}
             Clear All Caches

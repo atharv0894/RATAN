@@ -10,15 +10,19 @@ export default function DashboardLayout({ children, title, subtitle }: {
   title?: string;
   subtitle?: string;
 }) {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
   const router = useRouter();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      router.push("/auth/login");
+    if (!isLoading) {
+      if (!isAuthenticated) {
+        router.push("/auth/login");
+      } else if (user?.role === "SuperAdmin") {
+        router.push("/super-admin");
+      }
     }
-  }, [isAuthenticated, isLoading, router]);
+  }, [isAuthenticated, isLoading, user, router]);
 
   if (isLoading) {
     return (

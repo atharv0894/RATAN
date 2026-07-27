@@ -38,9 +38,8 @@ class RequireRole:
         
     def __call__(self, user: dict = Depends(get_current_user)):
         user_role = user.get("role")
-        if user_role not in ["SuperAdmin", "SYSTEM_ADMIN"]:
-            if user_role not in self.allowed_roles:
-                raise AuthorizationError(f"Role {user_role} is not authorized to access this resource.")
+        if user_role not in self.allowed_roles:
+            raise AuthorizationError(f"Role {user_role} is not authorized to access this resource.")
         return user
 
 def get_tenant_context(user: dict = Depends(get_current_user)):

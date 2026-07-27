@@ -20,7 +20,7 @@ class SettingResponse(BaseModel):
 
 @router.get("", response_model=APISuccessResponse)
 def get_system_settings(
-    current_user: dict = Depends(RequireRole(["Admin", "SuperAdmin"]))
+    current_user: dict = Depends(RequireRole(["SuperAdmin"]))
 ):
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -36,7 +36,7 @@ def get_system_settings(
 def update_system_setting(
     setting_id: str,
     update_data: SettingUpdate,
-    current_user: dict = Depends(RequireRole(["Admin", "SuperAdmin"]))
+    current_user: dict = Depends(RequireRole(["SuperAdmin"]))
 ):
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -56,7 +56,7 @@ def update_system_setting(
 
 @router.post("/cache/flush", response_model=APISuccessResponse)
 def flush_cache(
-    current_user: dict = Depends(RequireRole(["Admin", "SuperAdmin"]))
+    current_user: dict = Depends(RequireRole(["SuperAdmin"]))
 ):
     # Mock flushing cache
     import time

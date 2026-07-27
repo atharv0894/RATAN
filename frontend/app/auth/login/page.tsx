@@ -30,9 +30,13 @@ export default function LoginPage() {
   const onSubmit = async (data: FormData) => {
     setIsLoading(true);
     try {
-      await login(data.email, data.password);
+      const user = await login(data.email, data.password);
       toast.success("Welcome back!");
-      router.push("/dashboard");
+      if (user.role === "SuperAdmin") {
+        router.push("/super-admin");
+      } else {
+        router.push("/dashboard");
+      }
     } catch (err: unknown) {
       const axiosError = err as { response?: { data?: { detail?: string } } };
       toast.error(axiosError?.response?.data?.detail ?? "Invalid credentials");

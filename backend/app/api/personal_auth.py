@@ -69,7 +69,7 @@ def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends()):
     conn = get_tidb_connection()
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT id, password_hash, account_type, email, full_name, failed_login_attempts, locked_until, is_verified
+        SELECT id, password_hash, account_type, email, full_name, failed_login_attempts, locked_until, is_verified, provider
         FROM users 
         WHERE email = ? AND account_type = 'PERSONAL' AND status = 'Active' AND is_deleted = 0
     """, (form_data.username,))
@@ -87,6 +87,10 @@ def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends()):
     if not user["is_verified"]:
         conn.close()
         raise AuthenticationError("Please verify your email before signing in.")
+        
+    if user["provider"] == "GOOGLE":
+        conn.close()
+        raise AuthenticationError("This account uses Google Sign-In. Please continue with Google.")
     
     if not AuthService.verify_password(form_data.password, user["password_hash"]):
         failed_attempts = user["failed_login_attempts"] + 1

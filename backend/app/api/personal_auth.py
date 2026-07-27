@@ -69,7 +69,7 @@ def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends()):
     conn = get_tidb_connection()
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT id, password_hash, account_type, email, full_name, failed_login_attempts, locked_until 
+        SELECT id, password_hash, account_type, email, full_name, failed_login_attempts, locked_until, is_verified
         FROM users 
         WHERE email = ? AND account_type = 'PERSONAL' AND status = 'Active' AND is_deleted = 0
     """, (form_data.username,))

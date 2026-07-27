@@ -5,10 +5,10 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import SystemHealthCards from "./components/SystemHealthCards";
 import TenantResourceTable from "./components/TenantResourceTable";
-import { ShieldAlert, ActivitySquare } from "lucide-react";
+import { ShieldAlert, ActivitySquare, LogOut } from "lucide-react";
 
 export default function SystemAdminPage() {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, logout } = useAuth();
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
 
@@ -41,9 +41,21 @@ export default function SystemAdminPage() {
               Strictly isolated observability dashboard. Monitor system health, resource consumption, and enforce tenant-level suspensions globally.
             </p>
           </div>
-          <div className="hidden md:flex items-center gap-2 bg-blue-500/10 text-blue-400 px-4 py-2 rounded-full text-sm font-medium border border-blue-500/20">
-            <ActivitySquare className="w-4 h-4 animate-pulse" />
-            Live Telemetry Active
+          <div className="flex items-center gap-4">
+            <div className="hidden md:flex items-center gap-2 bg-blue-500/10 text-blue-400 px-4 py-2 rounded-full text-sm font-medium border border-blue-500/20">
+              <ActivitySquare className="w-4 h-4 animate-pulse" />
+              Live Telemetry Active
+            </div>
+            <button
+              onClick={() => {
+                logout();
+                router.push("/super-admin/login");
+              }}
+              className="flex items-center gap-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 px-4 py-2 rounded-full text-sm font-medium border border-red-500/20 transition-colors"
+            >
+              <LogOut className="w-4 h-4" />
+              Sign Out
+            </button>
           </div>
         </div>
 

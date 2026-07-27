@@ -104,6 +104,7 @@ api.interceptors.response.use(
 
 // Auth
 export const authApi = {
+  signup_personal: (data: any) => api.post("/auth/signup", data),
   login: (username: string, password: string) => {
     const form = new URLSearchParams();
     form.append("username", username);

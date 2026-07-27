@@ -63,10 +63,11 @@ def create_schema(cursor: sqlite3.Cursor):
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
             id TEXT PRIMARY KEY,
-            org_id TEXT NOT NULL,
+            account_type TEXT DEFAULT 'ORGANIZATION',
+            org_id TEXT,
             plant_id TEXT,
             department_id TEXT,
-            role_id TEXT NOT NULL,
+            role_id TEXT,
             email TEXT NOT NULL,
             password_hash TEXT NOT NULL,
             full_name TEXT NOT NULL,
@@ -81,6 +82,82 @@ def create_schema(cursor: sqlite3.Cursor):
             FOREIGN KEY (plant_id) REFERENCES plants(id) ON DELETE SET NULL,
             FOREIGN KEY (department_id) REFERENCES departments(id) ON DELETE SET NULL,
             FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE RESTRICT
+        )
+    ''')
+    
+    # 5a. Personal AI Tables
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS personal_chats (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            title TEXT NOT NULL,
+            llm_model TEXT NOT NULL,
+            created_at REAL NOT NULL,
+            updated_at REAL NOT NULL,
+            deleted_at REAL,
+            is_pinned INTEGER DEFAULT 0,
+            metadata TEXT,
+            status TEXT DEFAULT 'ACTIVE' CHECK(status IN ('ACTIVE', 'ARCHIVED', 'DELETED')),
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+    ''')
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS personal_messages (
+            id TEXT PRIMARY KEY,
+            session_id TEXT NOT NULL,
+            parent_id TEXT,
+            role TEXT NOT NULL CHECK(role IN ('user', 'assistant', 'system')),
+            content TEXT NOT NULL,
+            citations TEXT,
+            tokens_used INTEGER DEFAULT 0,
+            latency_ms INTEGER DEFAULT 0,
+            created_at REAL NOT NULL,
+            updated_at REAL NOT NULL,
+            FOREIGN KEY (session_id) REFERENCES personal_chats(id) ON DELETE CASCADE
+        )
+    ''')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS personal_files (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            filename TEXT NOT NULL,
+            storage_path TEXT NOT NULL,
+            mime_type TEXT,
+            file_size INTEGER NOT NULL,
+            chunk_count INTEGER DEFAULT 0,
+            vector_count INTEGER DEFAULT 0,
+            status TEXT DEFAULT 'READY',
+            created_at REAL NOT NULL,
+            updated_at REAL NOT NULL,
+            deleted_at REAL,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+    ''')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS personal_memories (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            memory_type TEXT NOT NULL,
+            content TEXT NOT NULL,
+            created_at REAL NOT NULL,
+            updated_at REAL NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+    ''')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS personal_settings (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL UNIQUE,
+            preferred_model TEXT DEFAULT 'gpt-4o',
+            memory_enabled INTEGER DEFAULT 1,
+            system_prompt TEXT,
+            created_at REAL NOT NULL,
+            updated_at REAL NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
         )
     ''')
     

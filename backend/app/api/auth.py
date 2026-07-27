@@ -40,6 +40,11 @@ class ResetPasswordRequest(BaseModel):
     token: str
     new_password: str
 
+class PersonalRegisterRequest(BaseModel):
+    full_name: str
+    email: str = Field(pattern=r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$")
+    password: str
+
 @router.post("/register", response_model=APISuccessResponse)
 def register_organization(payload: OrgRegisterRequest):
     conn = get_db_connection()
@@ -92,12 +97,46 @@ def register_organization(payload: OrgRegisterRequest):
     conn.close()
     return APISuccessResponse(data={"message": "Organization and Admin created successfully."})
 
+@router.post("/signup", response_model=APISuccessResponse)
+def register_personal_user(payload: PersonalRegisterRequest):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute("SELECT id FROM users WHERE email = ?", (payload.email,))
+    if cursor.fetchone():
+        conn.close()
+        raise DuplicateResourceError("User", payload.email)
+        
+    user_id = str(uuid.uuid4())
+    now = time.time()
+    password_hash = AuthService.get_password_hash(payload.password)
+    
+    try:
+        cursor.execute(
+            """INSERT INTO users (id, account_type, email, password_hash, full_name, created_at, updated_at) 
+               VALUES (?, 'PERSONAL', ?, ?, ?, ?, ?)""",
+            (user_id, payload.email, password_hash, payload.full_name, now, now)
+        )
+        # Create default personal settings
+        cursor.execute(
+            """INSERT INTO personal_settings (id, user_id, created_at, updated_at) VALUES (?, ?, ?, ?)""",
+            (str(uuid.uuid4()), user_id, now, now)
+        )
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        conn.close()
+        raise e
+    
+    conn.close()
+    return APISuccessResponse(data={"message": "Personal user created successfully."})
+
 @router.post("/login", response_model=APISuccessResponse[TokenResponse])
 def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends()):
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT u.id, u.password_hash, u.org_id, u.plant_id, u.department_id, u.email, u.full_name, u.failed_login_attempts, u.locked_until, r.name as role 
+        SELECT u.id, u.password_hash, u.account_type, u.org_id, u.plant_id, u.department_id, u.email, u.full_name, u.failed_login_attempts, u.locked_until, r.name as role 
         FROM users u 
         LEFT JOIN roles r ON u.role_id = r.id 
         WHERE u.email = ? AND u.status = 'Active' AND u.is_deleted = 0
@@ -128,6 +167,7 @@ def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends()):
         
     payload = {
         "sub": user["id"],
+        "account_type": user["account_type"] or "ORGANIZATION",
         "org_id": user["org_id"],
         "plant_id": user["plant_id"],
         "department_id": user["department_id"],
@@ -161,7 +201,7 @@ def refresh(payload: RefreshRequest):
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT u.id, u.org_id, u.plant_id, u.department_id, u.email, u.full_name, r.name as role 
+        SELECT u.id, u.account_type, u.org_id, u.plant_id, u.department_id, u.email, u.full_name, r.name as role 
         FROM users u 
         LEFT JOIN roles r ON u.role_id = r.id 
         WHERE u.id = ? AND u.status = 'Active'
@@ -174,6 +214,7 @@ def refresh(payload: RefreshRequest):
         
     payload = {
         "sub": user["id"],
+        "account_type": user["account_type"] or "ORGANIZATION",
         "org_id": user["org_id"],
         "plant_id": user["plant_id"],
         "department_id": user["department_id"],

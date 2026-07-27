@@ -1,7 +1,11 @@
 "use client";
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { authApi, setTokens, clearTokens, getAccessToken, getRefreshToken } from "@/lib/api";
-import { User } from "@/types";
+import { User as BaseUser } from "@/types";
+
+interface User extends BaseUser {
+  account_type: "PERSONAL" | "ORGANIZATION" | "SUPER_ADMIN";
+}
 
 interface AuthContextType {
   user: User | null;

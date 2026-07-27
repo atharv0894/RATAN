@@ -31,9 +31,13 @@ export default function LoginPage() {
     setIsLoading(true);
     try {
       const user = await login(data.email, data.password);
-      toast.success("Welcome back!");
-      if (user.role === "SuperAdmin") {
+      
+      toast.success("Login successful");
+      
+      if (user.account_type === "SUPER_ADMIN") {
         router.push("/super-admin");
+      } else if (user.account_type === "PERSONAL") {
+        router.push("/personal");
       } else {
         router.push("/dashboard");
       }

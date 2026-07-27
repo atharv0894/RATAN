@@ -24,6 +24,7 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
         
     return {
         "id": user_id,
+        "account_type": payload.get("account_type", "ORGANIZATION"),
         "org_id": payload.get("org_id"),
         "plant_id": payload.get("plant_id"),
         "department_id": payload.get("department_id"),
@@ -40,6 +41,16 @@ class RequireRole:
         user_role = user.get("role")
         if user_role not in self.allowed_roles:
             raise AuthorizationError(f"Role {user_role} is not authorized to access this resource.")
+        return user
+
+class RequireAccountType:
+    def __init__(self, allowed_types: list[str]):
+        self.allowed_types = allowed_types
+        
+    def __call__(self, user: dict = Depends(get_current_user)):
+        account_type = user.get("account_type")
+        if account_type not in self.allowed_types:
+            raise AuthorizationError(f"Account type {account_type} is not authorized to access this resource.")
         return user
 
 def get_tenant_context(user: dict = Depends(get_current_user)):

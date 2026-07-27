@@ -114,6 +114,7 @@ export const authApi = {
   },
   verify_email: (token: string) => api.post("/personal/auth/verify-email", { token }),
   resend_verification: (email: string) => api.post("/personal/auth/resend-verification", { email }),
+  google_oauth_start: () => api.get("/personal/auth/google"),
 
   // Enterprise
   register_enterprise: (data: any) => api.post("/enterprise/auth/register", data),

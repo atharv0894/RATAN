@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 # Load environment variables FIRST before importing any internal modules
 load_dotenv()
 
-from app.api import health, documents, chat, stats, entities, cleanup, auth, personal_auth, enterprise_auth, super_admin_auth, users, organizations, plants, departments, jobs, dashboard, admin, settings, admin_telemetry, personal_chat, personal_files, personal_memory
+from app.api import health, documents, chat, stats, entities, cleanup, auth, personal_auth, enterprise_auth, super_admin_auth, users, organizations, plants, departments, jobs, dashboard, admin, settings, admin_telemetry, personal_chat, personal_files, personal_memory, personal_google_auth
 # pyrefly: ignore [missing-import]
 from fastapi.responses import JSONResponse
 import logging
@@ -71,6 +71,7 @@ async def validation_exception_handler(request, exc: RequestValidationError):
 app.include_router(health.router, prefix="", tags=["health"])
 # Authentication Routers (Strictly Separated)
 app.include_router(personal_auth.router, prefix="/api/v1/personal/auth", tags=["personal-auth"])
+app.include_router(personal_google_auth.router, prefix="/api/v1/personal/auth", tags=["personal-google-auth"])
 app.include_router(enterprise_auth.router, prefix="/api/v1/enterprise/auth", tags=["enterprise-auth"])
 app.include_router(super_admin_auth.router, prefix="/api/v1/super-admin/auth", tags=["super-admin-auth"])
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["shared-auth"])

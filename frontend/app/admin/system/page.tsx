@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth } from "@/lib/auth-context";
 import SystemHealthCards from "./components/SystemHealthCards";
 import TenantResourceTable from "./components/TenantResourceTable";
 import { ShieldAlert, ActivitySquare } from "lucide-react";

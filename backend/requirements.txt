@@ -9,6 +9,7 @@ pytest
 httpx
 b2sdk
 qdrant-client
+fastembed
 passlib[bcrypt]
 pdfplumber
 python-docx

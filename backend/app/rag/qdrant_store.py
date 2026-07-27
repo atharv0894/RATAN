@@ -11,7 +11,10 @@ class QdrantStore:
         api_key = os.environ.get("QDRANT_API_KEY")
         timeout = float(os.environ.get("QDRANT_TIMEOUT", "30.0"))
         self.collection_name = collection_name
-        self.client = QdrantClient(url=url, api_key=api_key, timeout=timeout)
+        if url == ":memory:":
+            self.client = QdrantClient(location=":memory:", api_key=api_key, timeout=timeout)
+        else:
+            self.client = QdrantClient(url=url, api_key=api_key, timeout=timeout)
         
         self._ensure_collection()
 
@@ -22,15 +25,15 @@ class QdrantStore:
         if exists:
             # Verify dimensions
             collection_info = self.client.get_collection(collection_name=self.collection_name)
-            if collection_info.config.params.vectors.size != 1024:
-                print(f"Deleting incompatible Qdrant collection (found {collection_info.config.params.vectors.size}, expected 1024)")
+            if collection_info.config.params.vectors.size != 384:
+                print(f"Deleting incompatible Qdrant collection (found {collection_info.config.params.vectors.size}, expected 384)")
                 self.client.delete_collection(collection_name=self.collection_name)
                 exists = False
                 
         if not exists:
             self.client.create_collection(
                 collection_name=self.collection_name,
-                vectors_config=VectorParams(size=1024, distance=Distance.COSINE),
+                vectors_config=VectorParams(size=384, distance=Distance.COSINE),
             )
             # Create index for source to allow filtering
             try:

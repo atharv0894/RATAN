@@ -22,15 +22,15 @@ class QdrantStore:
         if exists:
             # Verify dimensions
             collection_info = self.client.get_collection(collection_name=self.collection_name)
-            if collection_info.config.params.vectors.size != 768:
-                print(f"Deleting incompatible Qdrant collection (found {collection_info.config.params.vectors.size}, expected 768)")
+            if collection_info.config.params.vectors.size != 1024:
+                print(f"Deleting incompatible Qdrant collection (found {collection_info.config.params.vectors.size}, expected 1024)")
                 self.client.delete_collection(collection_name=self.collection_name)
                 exists = False
                 
         if not exists:
             self.client.create_collection(
                 collection_name=self.collection_name,
-                vectors_config=VectorParams(size=768, distance=Distance.COSINE),
+                vectors_config=VectorParams(size=1024, distance=Distance.COSINE),
             )
             # Create index for source to allow filtering
             try:

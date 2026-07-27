@@ -11,18 +11,38 @@ export default function PersonalLogin() {
   const router = useRouter();
   const { loginPersonal } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const [isResending, setIsResending] = useState(false);
+  const [unverifiedEmail, setUnverifiedEmail] = useState("");
   const { register, handleSubmit } = useForm();
 
   const onSubmit = async (data: any) => {
     setIsLoading(true);
     try {
+      setUnverifiedEmail("");
       await loginPersonal(data.email, data.password);
       toast.success("Welcome back!");
       router.push("/personal");
     } catch (err: any) {
-      toast.error(err.response?.data?.error?.message || "Login failed");
+      const errorMsg = err.response?.data?.error?.message || err.response?.data?.detail || "Login failed";
+      if (errorMsg === "Please verify your email before signing in.") {
+        setUnverifiedEmail(data.email);
+      }
+      toast.error(errorMsg);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleResend = async () => {
+    setIsResending(true);
+    try {
+      const { authApi } = await import("@/lib/api");
+      await authApi.resend_verification(unverifiedEmail);
+      toast.success("If your email is registered, a verification link has been sent.");
+    } catch (err: any) {
+      toast.error("Failed to resend verification email.");
+    } finally {
+      setIsResending(false);
     }
   };
 
@@ -89,6 +109,19 @@ export default function PersonalLogin() {
               {isLoading ? "Signing in..." : "Sign in"} <ArrowRight className="w-4 h-4" />
             </button>
           </form>
+
+          {unverifiedEmail && (
+            <div className="mt-4">
+              <button
+                type="button"
+                onClick={handleResend}
+                disabled={isResending}
+                className="w-full flex justify-center py-3 px-4 border border-blue-500/30 rounded-xl shadow-sm text-sm font-medium text-blue-400 bg-blue-500/10 hover:bg-blue-500/20 transition-all"
+              >
+                {isResending ? "Sending..." : "Resend Verification Email"}
+              </button>
+            </div>
+          )}
 
           <div className="mt-6">
             <div className="relative">

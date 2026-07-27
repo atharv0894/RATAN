@@ -8,6 +8,7 @@ from app.services.session_service import SessionService
 from app.api.responses import APISuccessResponse
 from app.exceptions import AuthenticationError, DuplicateResourceError
 from app.database.tidb import get_tidb_connection
+from app.services.email_service import EmailService
 
 router = APIRouter()
 
@@ -35,17 +36,26 @@ def register_personal_user(payload: PersonalRegisterRequest):
     now = time.time()
     password_hash = AuthService.get_password_hash(payload.password)
     
+    import secrets
+    verification_token = secrets.token_urlsafe(32)
+    # Expires in 24 hours
+    verification_token_expires_at = now + (24 * 60 * 60)
+    
     try:
         cursor.execute(
-            """INSERT INTO users (id, account_type, email, password_hash, full_name, created_at, updated_at) 
-               VALUES (?, 'PERSONAL', ?, ?, ?, ?, ?)""",
-            (user_id, payload.email, password_hash, payload.full_name, now, now)
+            """INSERT INTO users (id, account_type, email, password_hash, full_name, is_verified, verification_token, verification_token_expires_at, created_at, updated_at) 
+               VALUES (?, 'PERSONAL', ?, ?, ?, 0, ?, ?, ?, ?)""",
+            (user_id, payload.email, password_hash, payload.full_name, verification_token, verification_token_expires_at, now, now)
         )
         cursor.execute(
             """INSERT INTO personal_settings (id, user_id, created_at, updated_at) VALUES (?, ?, ?, ?)""",
             (str(uuid.uuid4()), user_id, now, now)
         )
         conn.commit()
+        
+        # Send email asynchronously or synchronously
+        EmailService.send_verification_email(payload.email, verification_token)
+        
     except Exception as e:
         conn.rollback()
         conn.close()
@@ -73,6 +83,10 @@ def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends()):
     if user["locked_until"] and user["locked_until"] > now:
         conn.close()
         raise AuthenticationError("Account locked due to too many failed attempts.")
+        
+    if not user["is_verified"]:
+        conn.close()
+        raise AuthenticationError("Please verify your email before signing in.")
     
     if not AuthService.verify_password(form_data.password, user["password_hash"]):
         failed_attempts = user["failed_login_attempts"] + 1
@@ -108,3 +122,67 @@ def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends()):
         access_token=access_token,
         refresh_token=refresh_token
     ))
+
+class VerifyEmailRequest(BaseModel):
+    token: str
+
+@router.post("/verify-email", response_model=APISuccessResponse)
+def verify_email(payload: VerifyEmailRequest):
+    conn = get_tidb_connection()
+    cursor = conn.cursor()
+    now = time.time()
+    
+    cursor.execute("SELECT id, verification_token_expires_at FROM users WHERE verification_token = ? AND account_type = 'PERSONAL'", (payload.token,))
+    user = cursor.fetchone()
+    
+    if not user:
+        conn.close()
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="Invalid verification token.")
+        
+    if user["verification_token_expires_at"] and user["verification_token_expires_at"] < now:
+        conn.close()
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="Verification token has expired. Please request a new one.")
+        
+    cursor.execute(
+        "UPDATE users SET is_verified = 1, email_verified_at = ?, verification_token = NULL, verification_token_expires_at = NULL WHERE id = ?",
+        (now, user["id"])
+    )
+    conn.commit()
+    conn.close()
+    
+    return APISuccessResponse(data={"message": "Email verified successfully."})
+
+class ResendVerificationRequest(BaseModel):
+    email: str
+
+@router.post("/resend-verification", response_model=APISuccessResponse)
+def resend_verification(payload: ResendVerificationRequest):
+    conn = get_tidb_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute("SELECT id, is_verified FROM users WHERE email = ? AND account_type = 'PERSONAL'", (payload.email,))
+    user = cursor.fetchone()
+    
+    # We do not expose whether the email exists for security
+    if not user or user["is_verified"]:
+        conn.close()
+        return APISuccessResponse(data={"message": "If your email is registered and unverified, a verification link has been sent."})
+        
+    import secrets
+    now = time.time()
+    new_token = secrets.token_urlsafe(32)
+    expires_at = now + (24 * 60 * 60)
+    
+    cursor.execute(
+        "UPDATE users SET verification_token = ?, verification_token_expires_at = ? WHERE id = ?",
+        (new_token, expires_at, user["id"])
+    )
+    conn.commit()
+    conn.close()
+    
+    EmailService.send_verification_email(payload.email, new_token)
+    
+    return APISuccessResponse(data={"message": "If your email is registered and unverified, a verification link has been sent."})
+

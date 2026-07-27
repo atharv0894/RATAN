@@ -19,3 +19,4 @@ langchain-groq
 
 pymysql
 cryptography
+resend==2.34.0

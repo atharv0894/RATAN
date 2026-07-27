@@ -28,8 +28,8 @@ export default function PersonalRegister() {
         email: data.email,
         password: data.password
       });
-      toast.success("Account created! Please sign in.");
-      router.push("/personal/login");
+      toast.success("Account created! Please check your email to verify.");
+      router.push("/personal/verify-email");
     } catch (err: any) {
       toast.error(err.response?.data?.error?.message || "Registration failed");
     } finally {

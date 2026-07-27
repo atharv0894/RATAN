@@ -112,6 +112,8 @@ export const authApi = {
     form.append("password", password);
     return api.post("/personal/auth/login", form, { headers: { "Content-Type": "application/x-www-form-urlencoded" }});
   },
+  verify_email: (token: string) => api.post("/personal/auth/verify-email", { token }),
+  resend_verification: (email: string) => api.post("/personal/auth/resend-verification", { email }),
 
   // Enterprise
   register_enterprise: (data: any) => api.post("/enterprise/auth/register", data),

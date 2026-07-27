@@ -44,7 +44,7 @@ def register_personal_user(payload: PersonalRegisterRequest):
     try:
         cursor.execute(
             """INSERT INTO users (id, account_type, email, password_hash, full_name, is_verified, verification_token, verification_token_expires_at, created_at, updated_at) 
-               VALUES (?, 'PERSONAL', ?, ?, ?, 0, ?, ?, ?, ?)""",
+               VALUES (?, 'PERSONAL', ?, ?, ?, 0, ?, FROM_UNIXTIME(?), ?, ?)""",
             (user_id, payload.email, password_hash, payload.full_name, verification_token, verification_token_expires_at, now, now)
         )
         cursor.execute(

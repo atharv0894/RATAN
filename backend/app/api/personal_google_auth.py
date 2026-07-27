@@ -102,7 +102,7 @@ def _upsert_google_user(google_info: dict) -> dict:
             cursor.execute(
                 """UPDATE users
                    SET google_id = ?, profile_picture = ?, provider = 'GOOGLE',
-                       is_verified = 1, email_verified_at = ?,
+                       is_verified = 1, email_verified_at = FROM_UNIXTIME(?),
                        last_google_login = ?, updated_at = ?
                    WHERE id = ?""",
                 (google_id, picture, now, now, now, existing["id"]),
@@ -118,7 +118,7 @@ def _upsert_google_user(google_info: dict) -> dict:
                 provider, google_id, profile_picture, provider_account_id,
                 is_verified, email_verified_at, last_google_login,
                 created_at, updated_at)
-               VALUES (?, 'PERSONAL', ?, '', ?, 'GOOGLE', ?, ?, ?, 1, ?, ?, ?, ?)""",
+               VALUES (?, 'PERSONAL', ?, '', ?, 'GOOGLE', ?, ?, ?, 1, FROM_UNIXTIME(?), ?, ?, ?)""",
             (
                 user_id, email, full_name,
                 google_id, picture, google_id,

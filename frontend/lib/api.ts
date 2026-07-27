@@ -197,6 +197,10 @@ export const adminApi = {
   // System
   systemHealth: () => api.get("/admin/system/health"),
   systemStats: () => api.get("/admin/system/statistics"),
+  // Telemetry
+  telemetrySystem: () => api.get("/admin/telemetry/system"),
+  telemetryTenants: () => api.get("/admin/telemetry/tenants"),
+  toggleTenantStatus: (org_id: string) => api.post(`/admin/telemetry/tenants/${org_id}/toggle-status`),
 };
 
 // Organizations

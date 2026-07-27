@@ -196,7 +196,7 @@ class DocumentService:
             
             
             cursor = conn.cursor()
-            cursor.execute("SELECT organization, plant_id, department_id FROM documents WHERE id = ?", (document_id,))
+            cursor.execute("SELECT organization, plant, department FROM documents WHERE id = ?", (document_id,))
             doc_row = cursor.fetchone()
 
             # 6. Chunking
@@ -206,8 +206,8 @@ class DocumentService:
             for page in parsed_doc.pages:
                 base_meta = {
                     "organization_id": doc_row["organization"],
-                    "plant_id": doc_row["plant_id"],
-                    "department_id": doc_row["department_id"],
+                    "plant_id": doc_row["plant"],
+                    "department_id": doc_row["department"],
                     "filename": filename, 
                     "page": page.page_number,
                     "document_id": document_id,

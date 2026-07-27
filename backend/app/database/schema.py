@@ -7,9 +7,9 @@ def create_schema(cursor: sqlite3.Cursor):
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS organizations (
             id TEXT PRIMARY KEY,
-            name TEXT UNIQUE NOT NULL,
-            created_at REAL NOT NULL,
-            updated_at REAL NOT NULL,
+            name TEXT NOT NULL,
+            created_at BIGINT NOT NULL,
+            updated_at BIGINT NOT NULL,
             is_deleted INTEGER DEFAULT 0,
             status TEXT DEFAULT 'Active'
         )
@@ -22,8 +22,8 @@ def create_schema(cursor: sqlite3.Cursor):
             org_id TEXT NOT NULL,
             name TEXT NOT NULL,
             location TEXT,
-            created_at REAL NOT NULL,
-            updated_at REAL NOT NULL,
+            created_at BIGINT NOT NULL,
+            updated_at BIGINT NOT NULL,
             is_deleted INTEGER DEFAULT 0,
             status TEXT DEFAULT 'Active',
             FOREIGN KEY (org_id) REFERENCES organizations(id) ON DELETE RESTRICT
@@ -36,8 +36,8 @@ def create_schema(cursor: sqlite3.Cursor):
             id TEXT PRIMARY KEY,
             plant_id TEXT NOT NULL,
             name TEXT NOT NULL,
-            created_at REAL NOT NULL,
-            updated_at REAL NOT NULL,
+            created_at BIGINT NOT NULL,
+            updated_at BIGINT NOT NULL,
             is_deleted INTEGER DEFAULT 0,
             status TEXT DEFAULT 'Active',
             FOREIGN KEY (plant_id) REFERENCES plants(id) ON DELETE RESTRICT
@@ -48,12 +48,14 @@ def create_schema(cursor: sqlite3.Cursor):
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS roles (
             id TEXT PRIMARY KEY,
-            name TEXT UNIQUE NOT NULL,
+            org_id TEXT,
+            name TEXT NOT NULL,
             permissions TEXT NOT NULL,
-            created_at REAL NOT NULL,
-            updated_at REAL NOT NULL,
+            created_at BIGINT NOT NULL,
+            updated_at BIGINT NOT NULL,
             is_deleted INTEGER DEFAULT 0,
-            status TEXT DEFAULT 'Active'
+            status TEXT DEFAULT 'Active',
+            UNIQUE(org_id, name)
         )
     ''')
     
@@ -65,11 +67,14 @@ def create_schema(cursor: sqlite3.Cursor):
             plant_id TEXT,
             department_id TEXT,
             role_id TEXT NOT NULL,
-            email TEXT UNIQUE NOT NULL,
+            email TEXT NOT NULL,
             password_hash TEXT NOT NULL,
             full_name TEXT NOT NULL,
-            created_at REAL NOT NULL,
-            updated_at REAL NOT NULL,
+            failed_login_attempts INTEGER DEFAULT 0,
+            locked_until BIGINT,
+            email_verified INTEGER DEFAULT 0,
+            created_at BIGINT NOT NULL,
+            updated_at BIGINT NOT NULL,
             is_deleted INTEGER DEFAULT 0,
             status TEXT DEFAULT 'Active',
             FOREIGN KEY (org_id) REFERENCES organizations(id) ON DELETE RESTRICT,
@@ -249,12 +254,12 @@ def create_schema(cursor: sqlite3.Cursor):
         CREATE TABLE IF NOT EXISTS user_sessions (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
-            refresh_token TEXT UNIQUE NOT NULL,
+            refresh_token_hash TEXT UNIQUE NOT NULL,
             ip_address TEXT,
             device_info TEXT,
-            expires_at REAL NOT NULL,
-            last_activity REAL NOT NULL,
-            created_at REAL NOT NULL,
+            expires_at BIGINT NOT NULL,
+            last_activity BIGINT NOT NULL,
+            created_at BIGINT NOT NULL,
             is_revoked INTEGER DEFAULT 0,
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
         )
@@ -265,9 +270,9 @@ def create_schema(cursor: sqlite3.Cursor):
         CREATE TABLE IF NOT EXISTS password_reset_tokens (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
-            token TEXT UNIQUE NOT NULL,
-            expires_at REAL NOT NULL,
-            created_at REAL NOT NULL,
+            token_hash TEXT UNIQUE NOT NULL,
+            expires_at BIGINT NOT NULL,
+            created_at BIGINT NOT NULL,
             is_used INTEGER DEFAULT 0,
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
         )
@@ -279,8 +284,9 @@ def create_schema(cursor: sqlite3.Cursor):
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_doc_ver_doc_id ON document_versions(document_id)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_doc_ver_checksum ON document_versions(checksum)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_doc_ver_status ON document_versions(status)")
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)")
+    cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email) WHERE is_deleted = 0")
+    cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_orgs_name ON organizations(name) WHERE is_deleted = 0")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_chat_msg_session ON chat_messages(session_id)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_jobs_status ON processing_jobs(status)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_sessions_user ON user_sessions(user_id)")
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_sessions_token ON user_sessions(refresh_token)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_sessions_token ON user_sessions(refresh_token_hash)")

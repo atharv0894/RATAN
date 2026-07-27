@@ -35,25 +35,37 @@ class QdrantStore:
                 collection_name=self.collection_name,
                 vectors_config=VectorParams(size=384, distance=Distance.COSINE),
             )
-            # Create indexes for filtering (Required by Qdrant Cloud strict mode)
-            try:
-                self.client.create_payload_index(
-                    collection_name=self.collection_name,
-                    field_name="source",
-                    field_schema="keyword",
-                )
-                self.client.create_payload_index(
-                    collection_name=self.collection_name,
-                    field_name="organization_id",
-                    field_schema="keyword",
-                )
-                self.client.create_payload_index(
-                    collection_name=self.collection_name,
-                    field_name="is_latest",
-                    field_schema="integer",
-                )
-            except Exception as e:
-                print(f"Warning: Payload index creation skipped/failed: {e}")
+            
+        # Create indexes for filtering (Required by Qdrant Cloud strict mode)
+        # It's safe to call these even if the collection already exists
+        try:
+            self.client.create_payload_index(
+                collection_name=self.collection_name,
+                field_name="source",
+                field_schema="keyword",
+            )
+            self.client.create_payload_index(
+                collection_name=self.collection_name,
+                field_name="organization_id",
+                field_schema="keyword",
+            )
+            self.client.create_payload_index(
+                collection_name=self.collection_name,
+                field_name="is_latest",
+                field_schema="integer",
+            )
+            self.client.create_payload_index(
+                collection_name=self.collection_name,
+                field_name="document_id",
+                field_schema="keyword",
+            )
+            self.client.create_payload_index(
+                collection_name=self.collection_name,
+                field_name="version_id",
+                field_schema="keyword",
+            )
+        except Exception as e:
+            print(f"Warning: Payload index creation skipped/failed: {e}")
 
     def reset_collection(self):
         try:

@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 # Load environment variables FIRST before importing any internal modules
 load_dotenv()
 
-from app.api import health, documents, chat, stats, entities, cleanup, auth, users, organizations, plants, departments, jobs, dashboard, admin, settings
+from app.api import health, documents, chat, stats, entities, cleanup, auth, users, organizations, plants, departments, jobs, dashboard, admin, settings, admin_telemetry
 # pyrefly: ignore [missing-import]
 from fastapi.responses import JSONResponse
 import logging
@@ -82,6 +82,7 @@ app.include_router(settings.router, prefix="/api/v1/dashboard/system", tags=["se
 app.include_router(jobs.router, prefix="/api/v1/processing-jobs", tags=["processing-jobs"])
 app.include_router(dashboard.router, prefix="/api/v1/dashboard", tags=["dashboard"])
 app.include_router(admin.router, prefix="/api/v1/admin", tags=["admin"])
+app.include_router(admin_telemetry.router, prefix="/api/v1/admin/telemetry", tags=["admin-telemetry"])
 
 @app.get("/")
 def read_root():

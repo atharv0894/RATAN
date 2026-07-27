@@ -49,9 +49,61 @@ def run_migrations(conn: sqlite3.Connection):
             cursor.execute("ALTER TABLE feedback ADD COLUMN issue_category TEXT")
             logging.info("Added Phase 4 Feedback columns.")
             
+        # Phase 5 (V3): Security & Soft Delete Refactor
+        cursor.execute("PRAGMA table_info(users)")
+        user_columns = [info['name'] for info in cursor.fetchall()]
+        if 'failed_login_attempts' not in user_columns:
+            logging.info("Starting Phase 5 / V3 Database Migration (Security & Soft Deletes)...")
+            
+            # 1. Rename existing tables
+            cursor.execute("ALTER TABLE users RENAME TO legacy_v2_users")
+            cursor.execute("ALTER TABLE roles RENAME TO legacy_v2_roles")
+            cursor.execute("ALTER TABLE organizations RENAME TO legacy_v2_organizations")
+            
+            # 2. Re-create V3 Schema (so it drops constraints and creates new ones)
+            from app.database.schema import create_schema
+            create_schema(cursor)
+            
+            # 3. Migrate Organizations
+            cursor.execute("""
+                INSERT INTO organizations (id, name, created_at, updated_at, is_deleted, status)
+                SELECT id, name, created_at, updated_at, is_deleted, status FROM legacy_v2_organizations
+            """)
+            
+            # 4. Migrate Roles (Injecting NULL for org_id initially)
+            cursor.execute("""
+                INSERT INTO roles (id, org_id, name, permissions, created_at, updated_at, is_deleted, status)
+                SELECT id, NULL, name, permissions, created_at, updated_at, is_deleted, status FROM legacy_v2_roles
+            """)
+            
+            # 5. Migrate Users
+            cursor.execute("""
+                INSERT INTO users (
+                    id, org_id, plant_id, department_id, role_id, email, password_hash, full_name, 
+                    failed_login_attempts, locked_until, email_verified, created_at, updated_at, is_deleted, status
+                )
+                SELECT 
+                    id, org_id, plant_id, department_id, role_id, email, password_hash, full_name, 
+                    0, NULL, 0, created_at, updated_at, is_deleted, status 
+                FROM legacy_v2_users
+            """)
+            
+            # 6. Drop legacy tables
+            cursor.execute("DROP TABLE legacy_v2_users")
+            cursor.execute("DROP TABLE legacy_v2_roles")
+            cursor.execute("DROP TABLE legacy_v2_organizations")
+            
+            # 7. Rename Columns (Requires SQLite 3.25.0+)
+            try:
+                cursor.execute("ALTER TABLE user_sessions RENAME COLUMN refresh_token TO refresh_token_hash")
+                cursor.execute("ALTER TABLE password_reset_tokens RENAME COLUMN token TO token_hash")
+            except Exception as e:
+                logging.warning(f"Failed to rename token columns directly (might be using old SQLite): {e}")
+                
+            logging.info("Phase 5 Migration complete.")
+
         conn.commit()
         return
-        
     cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='documents'")
     if not cursor.fetchone():
         logging.info("Fresh database, creating schema...")

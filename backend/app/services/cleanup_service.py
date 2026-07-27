@@ -100,7 +100,7 @@ class CleanupService:
         finally:
             conn.close()
 
-    def run_cleanup(self, timeout_seconds=3600, purge_deleted=False):
+    def run_cleanup(self, timeout_seconds=3600, purge_deleted=False, org_id=None):
         """
         Runs comprehensive cleanup of the database, vector store, and local storage.
         Detects orphaned vectors, missing files, stale locks, and failed processing jobs.

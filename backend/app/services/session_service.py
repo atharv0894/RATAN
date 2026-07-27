@@ -1,5 +1,7 @@
-import uuid
 import time
+import logging
+import uuid
+import hashlib
 from typing import Optional, List
 from app.database.sqlite import get_db_connection
 
@@ -10,13 +12,15 @@ class SessionService:
         cursor = conn.cursor()
         
         session_id = str(uuid.uuid4())
-        now = time.time()
-        expires_at = now + (expires_delta_days * 24 * 60 * 60)
+        now = int(time.time() * 1000)
+        expires_at = now + (expires_delta_days * 24 * 60 * 60 * 1000)
+        
+        refresh_token_hash = hashlib.sha256(refresh_token.encode('utf-8')).hexdigest()
         
         cursor.execute(
-            """INSERT INTO user_sessions (id, user_id, refresh_token, ip_address, device_info, expires_at, last_activity, created_at, is_revoked)
+            """INSERT INTO user_sessions (id, user_id, refresh_token_hash, ip_address, device_info, expires_at, last_activity, created_at, is_revoked)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)""",
-            (session_id, user_id, refresh_token, ip_address, device_info, expires_at, now, now)
+            (session_id, user_id, refresh_token_hash, ip_address, device_info, expires_at, now, now)
         )
         conn.commit()
         conn.close()
@@ -26,9 +30,11 @@ class SessionService:
     def validate_and_update_refresh_token(refresh_token: str) -> Optional[dict]:
         conn = get_db_connection()
         cursor = conn.cursor()
-        now = time.time()
+        now = int(time.time() * 1000)
         
-        cursor.execute("SELECT id, user_id, expires_at, is_revoked FROM user_sessions WHERE refresh_token = ?", (refresh_token,))
+        refresh_token_hash = hashlib.sha256(refresh_token.encode('utf-8')).hexdigest()
+        
+        cursor.execute("SELECT id, user_id, expires_at, is_revoked FROM user_sessions WHERE refresh_token_hash = ?", (refresh_token_hash,))
         session = cursor.fetchone()
         
         if not session or session["is_revoked"] or session["expires_at"] < now:
@@ -52,7 +58,8 @@ class SessionService:
     def revoke_session_by_token(refresh_token: str):
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute("UPDATE user_sessions SET is_revoked = 1 WHERE refresh_token = ?", (refresh_token,))
+        refresh_token_hash = hashlib.sha256(refresh_token.encode('utf-8')).hexdigest()
+        cursor.execute("UPDATE user_sessions SET is_revoked = 1 WHERE refresh_token_hash = ?", (refresh_token_hash,))
         conn.commit()
         conn.close()
 

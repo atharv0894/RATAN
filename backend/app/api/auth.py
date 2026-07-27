@@ -97,16 +97,34 @@ def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends()):
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT u.id, u.password_hash, u.org_id, u.plant_id, u.department_id, u.email, u.full_name, r.name as role 
+        SELECT u.id, u.password_hash, u.org_id, u.plant_id, u.department_id, u.email, u.full_name, u.failed_login_attempts, u.locked_until, r.name as role 
         FROM users u 
         LEFT JOIN roles r ON u.role_id = r.id 
-        WHERE u.email = ? AND u.status = 'Active'
+        WHERE u.email = ? AND u.status = 'Active' AND u.is_deleted = 0
     """, (form_data.username,))
     user = cursor.fetchone()
-    conn.close()
     
-    if not user or not AuthService.verify_password(form_data.password, user["password_hash"]):
+    if not user:
+        conn.close()
         raise AuthenticationError("Incorrect email or password")
+        
+    now = int(time.time() * 1000)
+    if user["locked_until"] and user["locked_until"] > now:
+        conn.close()
+        raise AuthenticationError("Account locked due to too many failed attempts. Try again later.")
+    
+    if not AuthService.verify_password(form_data.password, user["password_hash"]):
+        failed_attempts = user["failed_login_attempts"] + 1
+        locked_until = now + (15 * 60 * 1000) if failed_attempts >= 5 else None
+        cursor.execute("UPDATE users SET failed_login_attempts = ?, locked_until = ? WHERE id = ?", (failed_attempts, locked_until, user["id"]))
+        conn.commit()
+        conn.close()
+        raise AuthenticationError("Incorrect email or password")
+        
+    # Reset lockouts on successful login
+    cursor.execute("UPDATE users SET failed_login_attempts = 0, locked_until = NULL WHERE id = ?", (user["id"],))
+    conn.commit()
+    conn.close()
         
     payload = {
         "sub": user["id"],
@@ -206,51 +224,18 @@ def change_password(payload: PasswordChangeRequest, current_user: dict = Depends
 
 @router.post("/forgot-password", response_model=APISuccessResponse)
 def forgot_password(payload: ForgotPasswordRequest):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT id FROM users WHERE email = ? AND status = 'Active'", (payload.email,))
-    user = cursor.fetchone()
-    
-    if user:
-        reset_token = str(uuid.uuid4())
-        expires_at = time.time() + 3600  # 1 hour
-        cursor.execute(
-            """INSERT INTO password_reset_tokens (id, user_id, token, expires_at, created_at) 
-               VALUES (?, ?, ?, ?, ?)""",
-            (str(uuid.uuid4()), user["id"], reset_token, expires_at, time.time())
-        )
-        conn.commit()
-        # In a real app, send email here. For now, we simulate success.
+    token = AuthService.generate_password_reset_token(payload.email)
+    if token:
+        pass # In a real app, send email here. For now, we simulate success.
         
-    conn.close()
     return APISuccessResponse(data={"message": "If an account with that email exists, a password reset link has been sent."})
 
 @router.post("/reset-password", response_model=APISuccessResponse)
 def reset_password(payload: ResetPasswordRequest):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    now = time.time()
+    success = AuthService.reset_password(payload.token, payload.new_password)
     
-    cursor.execute(
-        "SELECT id, user_id FROM password_reset_tokens WHERE token = ? AND is_used = 0 AND expires_at > ?",
-        (payload.token, now)
-    )
-    token_record = cursor.fetchone()
-    
-    if not token_record:
-        conn.close()
+    if not success:
         raise ValidationError("Invalid or expired password reset token.")
         
-    new_hash = AuthService.get_password_hash(payload.new_password)
-    
-    # Update password and invalidate token
-    cursor.execute("UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?", (new_hash, now, token_record["user_id"]))
-    cursor.execute("UPDATE password_reset_tokens SET is_used = 1 WHERE id = ?", (token_record["id"],))
-    conn.commit()
-    conn.close()
-    
-    # Revoke all existing sessions
-    SessionService.revoke_all_sessions(token_record["user_id"])
-    
     return APISuccessResponse(data={"message": "Password reset successfully. You may now log in."})
 

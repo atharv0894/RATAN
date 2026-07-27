@@ -3,15 +3,15 @@ from fastembed import TextEmbedding
 
 # Initialize globally to prevent memory spikes on every API call
 try:
-    # Using a lightweight multilingual model to support Hindi/Marathi within the 512MB RAM limit
-    _embedding_model = TextEmbedding(model_name="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
-    logging.info("Initialized fastembed model: paraphrase-multilingual-MiniLM-L12-v2")
+    # Reverting to the 133MB English model to fit within 512MB RAM limit
+    _embedding_model = TextEmbedding(model_name="BAAI/bge-small-en-v1.5")
+    logging.info("Initialized fastembed model: BAAI/bge-small-en-v1.5")
 except Exception as e:
     logging.error(f"Failed to initialize fastembed model: {e}")
     _embedding_model = None
 
 class EmbeddingService:
-    def __init__(self, model_name="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2", device=None, batch_size=8):
+    def __init__(self, model_name="BAAI/bge-small-en-v1.5", device=None, batch_size=8):
         self.model_name = model_name
         self.batch_size = batch_size
         

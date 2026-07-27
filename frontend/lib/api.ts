@@ -60,7 +60,7 @@ api.interceptors.response.use(
       const refresh = getRefreshToken();
       if (!refresh) {
         clearTokens();
-        if (typeof window !== "undefined") window.location.href = "/auth/login";
+        if (typeof window !== "undefined") window.location.href = "/";
         return Promise.reject(error);
       }
 
@@ -89,7 +89,7 @@ api.interceptors.response.use(
       } catch (refreshError) {
         processQueue(refreshError as AxiosError, null);
         clearTokens();
-        if (typeof window !== "undefined") window.location.href = "/auth/login";
+        if (typeof window !== "undefined") window.location.href = "/";
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;

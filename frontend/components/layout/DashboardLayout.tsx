@@ -17,7 +17,7 @@ export default function DashboardLayout({ children, title, subtitle }: {
   useEffect(() => {
     if (!isLoading) {
       if (!isAuthenticated) {
-        router.push("/auth/login");
+        router.push("/");
       } else if (user?.role === "SuperAdmin") {
         router.push("/super-admin");
       }

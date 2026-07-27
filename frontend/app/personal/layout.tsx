@@ -17,7 +17,7 @@ export default function PersonalLayout({ children }: { children: React.ReactNode
   useEffect(() => {
     if (!isLoading) {
       if (!user) {
-        router.push("/auth/login");
+        router.push("/");
       } else if (user.account_type === "ORGANIZATION") {
         router.push("/dashboard");
       } else if (user.account_type === "SUPER_ADMIN") {
@@ -32,7 +32,7 @@ export default function PersonalLayout({ children }: { children: React.ReactNode
 
   const handleLogout = async () => {
     await logout();
-    router.push("/auth/login");
+    router.push("/");
   };
 
   return (

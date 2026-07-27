@@ -202,46 +202,55 @@ def google_oauth_callback(code: str = Query(...), state: str = Query(...)):
     We exchange the code for tokens, upsert the user, issue our own JWT,
     and redirect the browser to the frontend with tokens in the URL fragment.
     """
-    # CSRF check
-    if not _verify_state_token(state):
-        raise AuthenticationError("Invalid or expired OAuth state.")
-
-    # Exchange code for tokens
-    token_resp = requests.post(
-        GOOGLE_TOKEN_URL,
-        data={
-            "code": code,
-            "client_id": GOOGLE_CLIENT_ID,
-            "client_secret": GOOGLE_CLIENT_SECRET,
-            "redirect_uri": GOOGLE_REDIRECT_URI,
-            "grant_type": "authorization_code",
-        },
-        timeout=10,
-    )
-    token_data = token_resp.json()
-    if "error" in token_data:
-        raise HTTPException(status_code=400, detail=f"Google token error: {token_data['error']}")
-
-    # Fetch user info
-    userinfo_resp = requests.get(
-        GOOGLE_USERINFO_URL,
-        headers={"Authorization": f"Bearer {token_data['access_token']}"},
-        timeout=10,
-    )
-    google_info = userinfo_resp.json()
-    if not google_info.get("email_verified"):
-        raise HTTPException(status_code=400, detail="Google account email is not verified.")
-
-    user = _upsert_google_user(google_info)
-    tokens = _build_jwt_for_user(user)
-
-    # Redirect to frontend callback page with tokens in fragment
-    redirect_url = (
-        f"{FRONTEND_URL}/personal/google-callback"
-        f"#access_token={tokens['access_token']}"
-        f"&refresh_token={tokens['refresh_token']}"
-    )
-    return RedirectResponse(url=redirect_url)
+    try:
+        # CSRF check
+        if not _verify_state_token(state):
+            raise AuthenticationError("Invalid or expired OAuth state.")
+    
+        # Exchange code for tokens
+        token_resp = requests.post(
+            GOOGLE_TOKEN_URL,
+            data={
+                "code": code,
+                "client_id": GOOGLE_CLIENT_ID,
+                "client_secret": GOOGLE_CLIENT_SECRET,
+                "redirect_uri": GOOGLE_REDIRECT_URI,
+                "grant_type": "authorization_code",
+            },
+            timeout=10,
+        )
+        token_data = token_resp.json()
+        if "error" in token_data:
+            raise AuthenticationError(f"Google token error: {token_data.get('error_description', token_data['error'])}")
+    
+        # Fetch user info
+        userinfo_resp = requests.get(
+            GOOGLE_USERINFO_URL,
+            headers={"Authorization": f"Bearer {token_data['access_token']}"},
+            timeout=10,
+        )
+        google_info = userinfo_resp.json()
+        if not google_info.get("email_verified"):
+            raise AuthenticationError("Google account email is not verified.")
+    
+        user = _upsert_google_user(google_info)
+        tokens = _build_jwt_for_user(user)
+    
+        # Redirect to frontend callback page with tokens in fragment
+        redirect_url = (
+            f"{FRONTEND_URL}/personal/google-callback"
+            f"#access_token={tokens['access_token']}"
+            f"&refresh_token={tokens['refresh_token']}"
+        )
+        return RedirectResponse(url=redirect_url)
+    except Exception as e:
+        # Return the exact error as JSON so we can debug it on the screen
+        from fastapi.responses import JSONResponse
+        import traceback
+        return JSONResponse(
+            status_code=400,
+            content={"success": False, "error_details": str(e), "traceback": traceback.format_exc()}
+        )
 
 
 class GoogleMobileRequest(BaseModel):

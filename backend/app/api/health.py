@@ -45,7 +45,7 @@ def get_health():
         "qdrant": qdrant_status,
         "storage": os.environ.get("STORAGE_PROVIDER", "local"),
         "models": {
-            "embedding": "sentence-transformers/all-MiniLM-L6-v2",
+            "embedding": "BAAI/bge-small-en-v1.5",
             "primary_llm": "Groq GPT-OSS 120B",
             "fallback_llm": "Gemini 2.5 Flash"
         },

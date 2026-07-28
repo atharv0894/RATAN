@@ -8,7 +8,7 @@ def get_vector_store(collection_name="ratan_documents", **kwargs):
         store = QdrantStore(collection_name=collection_name)
         logging.info("--------------------------------")
         logging.info("RATAN Initializing")
-        logging.info("Embedding Model : sentence-transformers/all-MiniLM-L6-v2")
+        logging.info("Embedding Model :")
         logging.info("Vector DB : Qdrant")
         logging.info("Collection : ratan_documents")
         logging.info("Dimension : 384")

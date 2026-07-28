@@ -102,7 +102,7 @@ class DocumentService:
                 self.storage_service.save(f, storage_path)
                 
             start_time = time.time()
-            emb_model = "sentence-transformers/all-MiniLM-L6-v2"
+            emb_model = "BAAI/bge-small-en-v1.5"
             vector_db = self.vector_store.__class__.__name__.replace("Store", "")
             meta = self.storage_service.get_metadata(storage_path)
             file_size = meta['size'] if meta else os.path.getsize(file_path)

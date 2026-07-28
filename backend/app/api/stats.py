@@ -52,7 +52,7 @@ def get_stats(current_user: dict = Depends(RequireRole(["Admin", "Plant Manager"
         documents=num_docs,
         chunks=vector_count,
         vector_database="Qdrant",
-        embedding_model="sentence-transformers/all-MiniLM-L6-v2",
+        embedding_model="",
         llm="Groq GPT-OSS 120B",
         uptime=uptime
     )

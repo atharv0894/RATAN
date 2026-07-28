@@ -185,10 +185,10 @@ export const personalChatApi = {
   createSession: (title: string, llm_model: string = "gpt-4o") => api.post("/personal/chat", { title, llm_model }),
   send: (question: string, chat_history?: { role: string; content: string }[], document_id?: string, session_id?: string) =>
     api.post("/personal/chat/message", { question, chat_history, document_id, session_id }),
-  listSessions: () => api.get("/personal/chat/sessions"),
-  getSession: (id: string) => api.get(`/personal/chat/sessions/${id}`),
-  deleteSession: (id: string) => api.delete(`/personal/chat/sessions/${id}`),
-  pinSession: (id: string) => api.patch(`/personal/chat/sessions/${id}/pin`),
+  listSessions: () => api.get("/personal/chat"),
+  getSession: (id: string) => api.get(`/personal/chat/${id}`),
+  deleteSession: (id: string) => api.delete(`/personal/chat/${id}`),
+  pinSession: (id: string) => api.patch(`/personal/chat/${id}/pin`),
 };
 
 // Dashboard

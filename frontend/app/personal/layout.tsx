@@ -137,17 +137,7 @@ export default function PersonalLayout({ children }: { children: React.ReactNode
             </div>
           </div>
           
-          <div>
-            <div className="px-3 pb-2 text-[10px] font-semibold text-text-secondary uppercase tracking-wider flex justify-between items-center group cursor-pointer">
-              <span>Pinned</span>
-            </div>
-            <div className="space-y-0.5">
-              <button className="w-full flex items-center gap-3 px-3 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-surface-2 rounded-lg transition-colors text-left group">
-                <div className="w-1.5 h-1.5 rounded-full bg-accent"></div>
-                <span className="truncate">Q3 Manufacturing Report Analysis</span>
-              </button>
-            </div>
-          </div>
+
 
           <div>
             <div className="px-3 pt-2 pb-2 text-[10px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider flex justify-between items-center group cursor-pointer">

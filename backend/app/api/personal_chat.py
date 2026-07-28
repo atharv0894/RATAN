@@ -13,7 +13,8 @@ router = APIRouter()
 # ─── Request Models ───────────────────────────────────────────────────────────
 
 class ChatSessionCreate(BaseModel):
-   
+    title: str = "New Chat"
+    llm_model: str = "gpt-4o"
 
 class ChatRename(BaseModel):
     title: str

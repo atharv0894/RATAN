@@ -38,14 +38,15 @@ def register_personal_user(payload: PersonalRegisterRequest):
     
     import secrets
     verification_token = secrets.token_urlsafe(32)
+    now = time.time()
     # Expires in 24 hours
-    verification_token_expires_at = now + (24 * 60 * 60)
+    verification_token_expires_at = int(now + (24 * 60 * 60))
     
     try:
         cursor.execute(
             """INSERT INTO users (id, account_type, email, password_hash, full_name, is_verified, verification_token, verification_token_expires_at, created_at, updated_at) 
-               VALUES (?, 'PERSONAL', ?, ?, ?, 0, ?, FROM_UNIXTIME(?), ?, ?)""",
-            (user_id, payload.email, password_hash, payload.full_name, verification_token, verification_token_expires_at, now, now)
+               VALUES (?, 'PERSONAL', ?, ?, ?, 0, ?, ?, ?, ?)""",
+            (user_id, payload.email, password_hash, payload.full_name, verification_token, verification_token_expires_at, int(now), int(now))
         )
         cursor.execute(
             """INSERT INTO personal_settings (id, user_id, created_at, updated_at) VALUES (?, ?, ?, ?)""",
@@ -54,15 +55,7 @@ def register_personal_user(payload: PersonalRegisterRequest):
         conn.commit()
         
         # Send email asynchronously or synchronously
-        email_sent = EmailService.send_verification_email(payload.email, verification_token)
-        
-        # Hackathon fallback: If Resend API is missing or fails due to free tier restrictions, auto-verify the user.
-        if not email_sent:
-            cursor.execute(
-                "UPDATE users SET is_verified = 1, email_verified_at = ?, verification_token = NULL, verification_token_expires_at = NULL WHERE id = ?",
-                (now, user_id)
-            )
-            conn.commit()
+        EmailService.send_verification_email(payload.email, verification_token)
             
     except Exception as e:
         conn.rollback()

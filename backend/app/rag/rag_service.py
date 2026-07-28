@@ -65,7 +65,10 @@ class RAGService:
         intent = QueryAnalyzer.detect_intent(clean_query)
         filters = QueryAnalyzer.extract_filters(clean_query)
         
-        final_where = {"is_latest": 1}
+        # Only apply is_latest for enterprise documents.
+        # Personal documents are never versioned so this field does not exist.
+        is_personal = base_where and "namespace" in base_where
+        final_where = {} if is_personal else {"is_latest": 1}
         if filters:
             final_where.update(filters)
         if base_where:

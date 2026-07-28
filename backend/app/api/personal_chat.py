@@ -77,6 +77,10 @@ def send_personal_message(request: ChatRequest, current_user: dict = Depends(Req
     rag_service = get_rag_service()
 
     # Isolate retrieval to the user's personal namespace only
+    session_id = request.session_id
+    if not session_id:
+        session_id = str(uuid.uuid4())
+
     base_where = {"namespace": f"personal/{current_user['id']}"}
 
     # Parse [Attached Document: filename] prefix from frontend
@@ -92,7 +96,7 @@ def send_personal_message(request: ChatRequest, current_user: dict = Depends(Req
         cursor = conn.cursor()
         cursor.execute(
             "UPDATE personal_files SET session_id = ? WHERE filename = ? AND user_id = ? AND session_id IS NULL",
-            (request.session_id, attached_filename, current_user["id"])
+            (session_id, attached_filename, current_user["id"])
         )
         conn.commit()
         conn.close()
@@ -105,12 +109,10 @@ def send_personal_message(request: ChatRequest, current_user: dict = Depends(Req
 
     conn = get_db_connection()
     cursor = conn.cursor()
-    session_id = request.session_id
     current_time = time.time()
 
-    if not session_id:
-        # Auto-create session if the frontend didn't pre-create one
-        session_id = str(uuid.uuid4())
+    if not request.session_id:
+        # We auto-created the session at the top, now persist it
         title = request.question[:50] + "..." if len(request.question) > 50 else request.question
         cursor.execute(
             "INSERT INTO personal_chats (id, user_id, title, llm_model, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",

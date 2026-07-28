@@ -48,6 +48,16 @@ class QdrantStore:
                 field_name="version_id",
                 field_schema="keyword",
             )
+            self.client.create_payload_index(
+                collection_name=self.collection_name,
+                field_name="namespace",
+                field_schema="keyword",
+            )
+            self.client.create_payload_index(
+                collection_name=self.collection_name,
+                field_name="filename",
+                field_schema="keyword",
+            )
         except Exception as e:
             print(f"Warning: Payload index creation skipped/failed: {e}")
 

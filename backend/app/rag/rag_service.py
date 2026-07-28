@@ -36,7 +36,7 @@ class RAGService:
             logging.warning("GROQ_API_KEY missing.")
             
         self.primary_client = ChatGroq(
-            model="openai/gpt-oss-120b",
+            model="llama3-70b-8192",
             temperature=0,
             api_key=groq_api_key,
             max_retries=3,
@@ -48,7 +48,7 @@ class RAGService:
             logging.warning("GOOGLE_API_KEY missing.")
             
         self.fallback_client = ChatGoogleGenerativeAI(
-            model="gemini-2.5-flash",
+            model="gemini-1.5-flash",
             google_api_key=gemini_api_key,
             temperature=0.1,
             max_retries=2,

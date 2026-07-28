@@ -12,13 +12,56 @@ import { personalChatApi } from "@/lib/api";
 
 function ChatContent() {
   const { user } = useAuth();
-  const [messages, setMessages] = useState<Array<{role: "user"|"assistant", content: string, id: string}>>([]);
+  const [messages, setMessages] = useState<Array<{
+    role: "user"|"assistant", 
+    content: string, 
+    id: string,
+    citations?: any[],
+    confidence?: number,
+    follow_up_questions?: string[],
+    provider?: string,
+    timestamp?: number
+  }>>([]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [isLoadingChat, setIsLoadingChat] = useState(false);
   const [attachedFile, setAttachedFile] = useState<{name: string, id: string} | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  useEffect(() => {
+    const chatId = searchParams.get("chat_id");
+    if (chatId) {
+      const loadChat = async () => {
+        try {
+          setIsLoadingChat(true);
+          const { data } = await personalChatApi.getSession(chatId);
+          // Assuming data.data returns an array of messages
+          const msgs = data.data.map((m: any) => ({
+            id: m.id,
+            role: m.role,
+            content: m.content,
+            citations: m.citations ? (typeof m.citations === 'string' ? JSON.parse(m.citations) : m.citations) : undefined,
+            confidence: m.confidence_score,
+            follow_up_questions: m.follow_up_questions ? (typeof m.follow_up_questions === 'string' ? JSON.parse(m.follow_up_questions) : m.follow_up_questions) : undefined,
+            timestamp: m.created_at,
+          }));
+          setMessages(msgs);
+        } catch (err) {
+          console.error(err);
+          toast.error("Failed to load chat history");
+        } finally {
+          setIsLoadingChat(false);
+        }
+      };
+      loadChat();
+    } else {
+      setMessages([]);
+    }
+  }, [searchParams]);
 
   const uploadMutation = useMutation({
     mutationFn: (file: File) => personalFilesApi.upload(file),
@@ -38,9 +81,6 @@ function ChatContent() {
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
-
-  const searchParams = useSearchParams();
-  const router = useRouter();
   
   const removeAttachedFile = () => setAttachedFile(null);
   const scrollToBottom = () => {
@@ -119,7 +159,12 @@ function ChatContent() {
       <div className="flex-1 overflow-y-auto p-4 md:p-8 scroll-smooth pb-40">
         <div className="max-w-3xl mx-auto space-y-8">
           
-          {messages.length === 0 ? (
+          {isLoadingChat ? (
+            <div className="flex flex-col items-center justify-center min-h-[50vh] text-center space-y-4">
+              <Loader2 className="w-8 h-8 animate-spin text-primary" />
+              <p className="text-text-secondary text-sm">Loading chat history...</p>
+            </div>
+          ) : messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center min-h-[50vh] text-center space-y-6 animate-fade-in mt-10">
               <div className="w-16 h-16 bg-surface-2 border border-border-default rounded-3xl flex items-center justify-center shadow-card relative overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-accent/10 opacity-50"></div>

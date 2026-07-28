@@ -12,6 +12,7 @@ import time
 # Load environment variables FIRST before importing any internal modules
 load_dotenv()
 
+
 from app.api import (
     health, documents, chat, stats, entities, cleanup, auth,
     personal_auth, enterprise_auth, super_admin_auth, users,

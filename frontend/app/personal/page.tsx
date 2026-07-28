@@ -5,6 +5,7 @@ import { useAuth } from "@/lib/auth-context";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { personalFilesApi } from "@/lib/api";
 import { toast } from "sonner";
+import ReactMarkdown from "react-markdown";
 
 export default function PersonalChatPage() {
   const { user } = useAuth();
@@ -62,23 +63,11 @@ export default function PersonalChatPage() {
   return (
     <div className="flex flex-col h-full bg-bg text-text-primary selection:bg-primary/30 relative">
       
-      {/* Header */}
+      {/* Mobile Header (Empty for now, just preserves height and layout) */}
       <div className="h-14 border-b border-border-default flex items-center justify-between px-4 bg-surface/80 backdrop-blur-xl sticky top-0 z-10 md:hidden shadow-sm">
         <div className="w-8"></div>
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface-2 border border-border-default shadow-sm cursor-pointer hover:border-primary/50 transition-colors">
-          <Sparkles className="w-4 h-4 text-accent" />
-          <span className="text-sm font-semibold text-text-primary">GPT-4o</span>
-          <ChevronDown className="w-4 h-4 text-text-secondary" />
-        </div>
+        <div></div>
         <div className="w-8"></div>
-      </div>
-
-      <div className="hidden md:flex h-14 border-b border-border-default items-center justify-center bg-surface/80 backdrop-blur-xl sticky top-0 z-10 shadow-sm transition-colors">
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface border border-border-default shadow-sm cursor-pointer hover:border-border-hover hover:bg-surface-2 transition-all">
-          <Sparkles className="w-4 h-4 text-accent" />
-          <span className="text-sm font-semibold text-text-primary">GPT-4o</span>
-          <ChevronDown className="w-4 h-4 text-text-secondary" />
-        </div>
       </div>
 
       {/* Messages */}
@@ -128,16 +117,41 @@ export default function PersonalChatPage() {
                 )}
                 
                 <div className={`flex flex-col gap-2 max-w-[85%]`}>
-                  <div className={`px-5 py-3.5 rounded-2xl text-[15px] leading-relaxed shadow-sm ${
+                  <div className={`px-5 py-3.5 rounded-2xl text-[15px] leading-relaxed shadow-sm overflow-hidden ${
                     msg.role === "user" 
                       ? "bg-surface-2 border border-border-default text-text-primary rounded-tr-sm" 
                       : "bg-transparent text-text-primary"
                   }`}>
-                    <div className="whitespace-pre-wrap">{msg.content}</div>
+                    {msg.role === "assistant" ? (
+                      <div className="text-[15px] leading-relaxed break-words space-y-4">
+                        <ReactMarkdown 
+                          components={{
+                            p: ({node, ...props}) => <p className="mb-2 last:mb-0" {...props} />,
+                            pre: ({node, ...props}) => <pre className="bg-surface-2 border border-border-default rounded-xl p-4 my-3 overflow-x-auto text-sm font-mono text-text-primary shadow-inner" {...props} />,
+                            code: ({node, className, children, ...props}) => {
+                              const match = /language-(\w+)/.exec(className || '')
+                              return match ? (
+                                <code className={className} {...props}>
+                                  {children}
+                                </code>
+                              ) : (
+                                <code className="bg-surface-2 border border-border-default px-1.5 py-0.5 rounded-md text-[13px] font-mono text-primary" {...props}>
+                                  {children}
+                                </code>
+                              )
+                            }
+                          }}
+                        >
+                          {msg.content}
+                        </ReactMarkdown>
+                      </div>
+                    ) : (
+                      <div className="whitespace-pre-wrap">{msg.content}</div>
+                    )}
                   </div>
 
                   {msg.role === "assistant" && (
-                    <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity ml-1">
+                    <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity ml-1 mt-1">
                       <button className="p-1.5 text-text-secondary hover:text-text-primary hover:bg-surface-2 rounded-md transition-colors" title="Copy">
                         <Copy className="w-3.5 h-3.5" />
                       </button>

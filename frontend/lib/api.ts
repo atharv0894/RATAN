@@ -180,6 +180,14 @@ export const chatApi = {
   pinSession: (id: string) => api.patch(`/chat/sessions/${id}/pin`),
 };
 
+// Personal Chat
+export const personalChatApi = {
+  send: (question: string, chat_history?: { role: string; content: string }[], document_id?: string, session_id?: string) =>
+    api.post("/personal/chat", { question, chat_history, document_id, session_id }),
+  listSessions: () => api.get("/personal/chat/sessions"),
+  getSession: (id: string) => api.get(`/personal/chat/sessions/${id}`),
+};
+
 // Dashboard
 export const dashboardApi = {
   overview: () => api.get("/dashboard"),

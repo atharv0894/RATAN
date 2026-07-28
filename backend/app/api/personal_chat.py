@@ -149,12 +149,10 @@ def send_personal_message(request: ChatRequest, current_user: dict = Depends(Req
     
     import json
     cursor.execute(
-        "INSERT INTO personal_messages (id, session_id, role, content, citations, follow_up_questions, confidence_score, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO personal_messages (id, session_id, role, content, citations, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
         (
             str(uuid.uuid4()), session_id, "assistant", result["answer"],
             json.dumps(result.get("citations", [])), 
-            json.dumps(result.get("follow_up_questions", [])),
-            result.get("confidence_score", 0.0),
             current_time, current_time
         )
     )

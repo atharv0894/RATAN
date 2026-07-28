@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Providers } from "@/lib/providers";
+import { CommandPalette } from "@/components/CommandPalette";
 
 export const metadata: Metadata = {
   title: "RATAN — Enterprise AI Knowledge Platform",
@@ -21,7 +22,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body className="bg-background text-foreground antialiased">
-        <Providers>{children}</Providers>
+        <Providers>
+          {children}
+          <CommandPalette />
+        </Providers>
       </body>
     </html>
   );

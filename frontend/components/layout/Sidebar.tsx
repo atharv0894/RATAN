@@ -81,19 +81,21 @@ export function Sidebar({ isOpen, setIsOpen }: { isOpen?: boolean; setIsOpen?: (
         "w-64 h-screen flex flex-col bg-surface border-r border-border-default fixed left-0 top-0 z-30 transition-transform duration-300 md:translate-x-0",
         isOpen ? "translate-x-0" : "-translate-x-full"
       )}>
-        {/* Logo */}
-        <div className="px-5 py-5 border-b border-border-default flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-linear-to-br from-primary to-accent flex items-center justify-center shadow-lg shadow-primary/20">
-              <Cpu className="w-4 h-4 text-white" />
+        {/* Workspace Switcher */}
+        <div className="px-3 py-3 border-b border-border-default flex items-center justify-between">
+          <button className="flex-1 flex items-center gap-2 px-2 py-1.5 hover:bg-surface-2 rounded-lg transition-colors group text-left">
+            <div className="w-6 h-6 rounded-md bg-linear-to-br from-primary to-accent flex items-center justify-center shadow-lg shadow-primary/20 shrink-0">
+              <Cpu className="w-3.5 h-3.5 text-white" />
             </div>
-            <div>
-              <p className="text-sm font-bold text-foreground tracking-wide">RATAN</p>
-              <p className="text-[10px] text-muted-foreground">Knowledge Platform</p>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-foreground truncate">RATAN Enterprise</p>
             </div>
-          </div>
+            <div className="opacity-0 group-hover:opacity-100 transition-opacity p-1">
+              <span className="text-[10px] font-mono text-muted-foreground bg-surface border border-border-default px-1.5 py-0.5 rounded">⌘K</span>
+            </div>
+          </button>
           <button 
-            className="md:hidden p-1.5 rounded-lg text-muted-foreground hover:bg-surface-2 transition-colors"
+            className="md:hidden p-1.5 ml-1 rounded-lg text-muted-foreground hover:bg-surface-2 transition-colors shrink-0"
             onClick={() => setIsOpen?.(false)}
           >
             <X className="w-4 h-4" />

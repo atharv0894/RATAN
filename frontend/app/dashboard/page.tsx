@@ -18,33 +18,28 @@ function StatCard({ label, value, sub, icon: Icon, trend, color = "primary" }: {
   label: string; value: string | number; sub?: string;
   icon: React.ElementType; trend?: string; color?: "primary" | "accent" | "success" | "warning" | "danger";
 }) {
-  const colors = {
-    primary: "from-primary/20 to-primary/5 border-primary/20",
-    accent: "from-accent/20 to-accent/5 border-accent/20",
-    success: "from-success/20 to-success/5 border-success/20",
-    warning: "from-warning/20 to-warning/5 border-warning/20",
-    danger: "from-danger/20 to-danger/5 border-danger/20",
-  };
-  const iconColors = { primary: "text-primary", accent: "text-accent", success: "text-success", warning: "text-warning", danger: "text-danger" };
+  const iconColors = { primary: "text-foreground", accent: "text-accent", success: "text-success", warning: "text-warning", danger: "text-danger" };
+  const bgColors = { primary: "bg-foreground/5", accent: "bg-accent/10", success: "bg-success/10", warning: "bg-warning/10", danger: "bg-danger/10" };
 
   return (
-    <div className={cn("card-premium p-5 bg-linear-to-br", colors[color], "border")}>
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">{label}</p>
-          <p className="text-3xl font-bold text-white mt-2">{value}</p>
-          {sub && <p className="text-xs text-muted-foreground mt-1">{sub}</p>}
-        </div>
-        <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", `bg-${color}/10`)}>
+    <div className="card-premium p-5 flex flex-col justify-between h-full relative overflow-hidden group">
+      <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-gradient-to-br from-current to-transparent opacity-[0.03] rounded-full blur-2xl group-hover:opacity-[0.06] transition-opacity" style={{ color: `var(--${color === 'primary' ? 'foreground' : color})` }}></div>
+      <div className="flex items-start justify-between mb-4 z-10">
+        <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center border border-border-default shadow-sm group-hover:scale-105 transition-transform", bgColors[color])}>
           <Icon className={cn("w-5 h-5", iconColors[color])} />
         </div>
+        {trend && (
+          <div className="flex items-center gap-1 bg-success/10 text-success text-[10px] font-bold px-2 py-1 rounded-full border border-success/20">
+            <TrendingUp className="w-3 h-3" />
+            <span>{trend}</span>
+          </div>
+        )}
       </div>
-      {trend && (
-        <div className="mt-3 flex items-center gap-1 text-success text-xs">
-          <TrendingUp className="w-3 h-3" />
-          <span>{trend}</span>
-        </div>
-      )}
+      <div className="z-10">
+        <p className="text-3xl font-bold text-text-primary tracking-tight">{value}</p>
+        <p className="text-xs text-text-secondary font-medium mt-1">{label}</p>
+        {sub && <p className="text-[10px] text-text-secondary/70 mt-1">{sub}</p>}
+      </div>
     </div>
   );
 }

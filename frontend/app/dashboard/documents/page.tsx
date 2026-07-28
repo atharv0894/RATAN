@@ -99,54 +99,56 @@ export default function DocumentsPage() {
         </div>
 
         {/* Document Table */}
-        <div className="card-premium overflow-hidden">
+        <div className="card-premium overflow-hidden bg-surface shadow-card">
           <div className="overflow-x-auto">
             <table className="w-full text-sm whitespace-nowrap">
-              <thead className="sticky top-0 bg-surface z-10">
-                <tr className="border-b border-border-default bg-surface-2/50">
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Document</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden md:table-cell">Version</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden lg:table-cell">Chunks</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden sm:table-cell">Category</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden sm:table-cell">Uploaded</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Actions</th>
+              <thead className="sticky top-0 bg-surface/95 backdrop-blur-md z-10">
+                <tr className="border-b border-border-default">
+                  <th className="px-4 py-3 text-[11px] font-semibold text-text-secondary uppercase tracking-wider text-left">Document</th>
+                  <th className="px-4 py-3 text-[11px] font-semibold text-text-secondary uppercase tracking-wider text-left">Status</th>
+                  <th className="px-4 py-3 text-[11px] font-semibold text-text-secondary uppercase tracking-wider text-left hidden md:table-cell">Version</th>
+                  <th className="px-4 py-3 text-[11px] font-semibold text-text-secondary uppercase tracking-wider text-left hidden lg:table-cell">Chunks</th>
+                  <th className="px-4 py-3 text-[11px] font-semibold text-text-secondary uppercase tracking-wider text-left hidden sm:table-cell">Category</th>
+                  <th className="px-4 py-3 text-[11px] font-semibold text-text-secondary uppercase tracking-wider text-left hidden sm:table-cell">Uploaded</th>
+                  <th className="px-4 py-3 text-[11px] font-semibold text-text-secondary uppercase tracking-wider text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-border-default/50">
                 {isLoading
                   ? Array.from({ length: 5 }).map((_, i) => (
-                    <tr key={i} className="border-b border-border-default">
-                      <td className="px-4 py-3"><div className="skeleton h-4 rounded w-48" /></td>
-                      <td className="px-4 py-3"><div className="skeleton h-4 rounded w-16" /></td>
-                      <td className="px-4 py-3 hidden md:table-cell"><div className="skeleton h-4 rounded w-8" /></td>
-                      <td className="px-4 py-3 hidden lg:table-cell"><div className="skeleton h-4 rounded w-12" /></td>
-                      <td className="px-4 py-3 hidden sm:table-cell"><div className="skeleton h-4 rounded w-16" /></td>
-                      <td className="px-4 py-3 hidden sm:table-cell"><div className="skeleton h-4 rounded w-16" /></td>
-                      <td className="px-4 py-3"><div className="skeleton h-4 rounded w-12" /></td>
+                    <tr key={i} className="hover:bg-surface-2/30 transition-colors">
+                      <td className="px-4 py-3.5"><div className="skeleton h-4 rounded w-48" /></td>
+                      <td className="px-4 py-3.5"><div className="skeleton h-4 rounded w-16" /></td>
+                      <td className="px-4 py-3.5 hidden md:table-cell"><div className="skeleton h-4 rounded w-8" /></td>
+                      <td className="px-4 py-3.5 hidden lg:table-cell"><div className="skeleton h-4 rounded w-12" /></td>
+                      <td className="px-4 py-3.5 hidden sm:table-cell"><div className="skeleton h-4 rounded w-16" /></td>
+                      <td className="px-4 py-3.5 hidden sm:table-cell"><div className="skeleton h-4 rounded w-16" /></td>
+                      <td className="px-4 py-3.5"><div className="skeleton h-4 rounded w-12 float-right" /></td>
                     </tr>
                   ))
                   : filtered.length === 0
                   ? (
                     <tr>
-                      <td colSpan={7} className="px-4 py-16 text-center text-muted-foreground">
-                        <div className="flex flex-col items-center gap-3">
-                          <FileText className="w-10 h-10 text-muted-foreground/30" />
-                          <p>No documents found. <Link href="/dashboard/upload" className="text-primary hover:underline">Upload your first document</Link></p>
+                      <td colSpan={7} className="px-4 py-16 text-center text-text-secondary">
+                        <div className="flex flex-col items-center justify-center gap-3">
+                          <div className="w-12 h-12 rounded-2xl bg-surface-2 flex items-center justify-center border border-border-default shadow-sm">
+                            <FileText className="w-6 h-6 text-text-secondary/50" />
+                          </div>
+                          <p className="font-medium">No documents found. <Link href="/dashboard/upload" className="text-primary hover:underline transition-all">Upload your first document</Link></p>
                         </div>
                       </td>
                     </tr>
                   )
                   : filtered.map((doc) => (
-                    <tr key={doc.id} className="border-b border-border-default/60 hover:bg-surface-2/30 transition-colors">
-                      <td className="px-4 py-3">
+                    <tr key={doc.id} className="hover:bg-surface-2/60 transition-colors group">
+                      <td className="px-4 py-3.5">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                          <div className="w-8 h-8 rounded-lg bg-primary/5 border border-primary/10 flex items-center justify-center shrink-0 shadow-sm">
                             <FileText className="w-4 h-4 text-primary" />
                           </div>
                           <div className="flex flex-col min-w-0">
-                            <p className="font-medium text-foreground truncate">{truncate(doc.title || doc.filename, 40)}</p>
-                            <p className="text-[11px] text-muted-foreground truncate">{doc.filename}</p>
+                            <p className="font-medium text-text-primary truncate group-hover:text-primary transition-colors">{truncate(doc.title || doc.filename, 40)}</p>
+                            <p className="text-[11px] text-text-secondary truncate">{doc.filename}</p>
                           </div>
                         </div>
                       </td>

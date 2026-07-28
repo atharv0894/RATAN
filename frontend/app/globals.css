@@ -37,35 +37,39 @@
 
 @layer base {
   :root {
-    --bg: #F8FAFC;
+    --bg: #FAFAFA;
     --surface: #FFFFFF;
-    --surface-2: #F1F5F9;
-    --border: #E2E8F0;
-    --primary: #2563EB;
-    --primary-hover: #1d4ed8;
-    --accent: #06B6D4;
-    --accent-hover: #0891b2;
-    --text-primary: #0F172A;
-    --text-secondary: #64748B;
-    --muted: #E2E8F0;
-    --shadow-card-val: 0 4px 24px rgba(0, 0, 0, 0.05);
-    --shadow-card-hover-val: 0 8px 40px rgba(0, 0, 0, 0.08);
+    --surface-2: #F4F4F5;
+    --surface-3: #E4E4E7;
+    --border: #E4E4E7;
+    --border-hover: #D4D4D8;
+    --primary: #000000;
+    --primary-hover: #27272A;
+    --accent: #0070F3;
+    --accent-hover: #0051B3;
+    --text-primary: #09090B;
+    --text-secondary: #71717A;
+    --muted: #F4F4F5;
+    --shadow-card-val: 0 4px 12px rgba(0, 0, 0, 0.03), 0 1px 2px rgba(0, 0, 0, 0.02);
+    --shadow-card-hover-val: 0 8px 24px rgba(0, 0, 0, 0.06), 0 2px 4px rgba(0, 0, 0, 0.04);
   }
   
   .dark {
-    --bg: #0B1220;
-    --surface: #111827;
-    --surface-2: #1E293B;
-    --border: rgba(255, 255, 255, 0.08);
-    --primary: #2563EB;
-    --primary-hover: #3B82F6;
-    --accent: #06B6D4;
-    --accent-hover: #0891b2;
-    --text-primary: #F8FAFC;
-    --text-secondary: #94A3B8;
-    --muted: #334155;
-    --shadow-card-val: 0 4px 24px rgba(0, 0, 0, 0.4);
-    --shadow-card-hover-val: 0 8px 40px rgba(0, 0, 0, 0.6);
+    --bg: #000000;
+    --surface: #0A0A0A;
+    --surface-2: #111111;
+    --surface-3: #1A1A1A;
+    --border: #222222;
+    --border-hover: #333333;
+    --primary: #FFFFFF;
+    --primary-hover: #E4E4E7;
+    --accent: #0070F3;
+    --accent-hover: #3291FF;
+    --text-primary: #EDEDED;
+    --text-secondary: #A1A1AA;
+    --muted: #111111;
+    --shadow-card-val: 0 4px 24px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255,255,255,0.05);
+    --shadow-card-hover-val: 0 8px 40px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255,255,255,0.1);
   }
 }
 
@@ -259,6 +263,15 @@ html {
   animation: slide-in 0.3s ease-out;
 }
 
+.animate-slide-in-down {
+  animation: slide-in-down 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
 .animate-shimmer {
   animation: shimmer 2s infinite linear;
+}
+
+@keyframes slide-in-down {
+  from { opacity: 0; transform: translateY(-10px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }

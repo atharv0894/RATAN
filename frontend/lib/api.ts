@@ -142,6 +142,17 @@ export const authApi = {
   forgotPassword: (email: string) => api.post("/auth/forgot-password", { email }),
 };
 
+// Personal Files
+export const personalFilesApi = {
+  list: () => api.get("/personal/files"),
+  upload: (file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return api.post("/personal/files", form, { headers: { "Content-Type": "multipart/form-data" } });
+  },
+  delete: (id: string) => api.delete(`/personal/files/${id}`),
+};
+
 // Documents
 export const documentsApi = {
   list: (page = 1, limit = 50) => api.get(`/documents?page=${page}&limit=${limit}`),

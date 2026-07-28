@@ -61,66 +61,68 @@ export default function PersonalLogin() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-950 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
+    <div className="min-h-screen bg-bg flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans selection:bg-primary/30 relative overflow-hidden">
+      {/* Background Decorators */}
+      <div className="absolute -top-40 -right-40 w-96 h-96 bg-accent/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
+
+      <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10">
         <Link href="/" className="flex justify-center mb-6">
-          <div className="w-12 h-12 bg-blue-600/20 rounded-xl flex items-center justify-center">
-            <Bot className="w-6 h-6 text-blue-500" />
+          <div className="w-12 h-12 bg-linear-to-br from-primary to-accent rounded-2xl flex items-center justify-center shadow-glow">
+            <Bot className="w-6 h-6 text-primary-foreground" />
           </div>
         </Link>
-        <h2 className="text-center text-3xl font-extrabold text-white">Welcome back</h2>
-        <p className="mt-2 text-center text-sm text-gray-400">
+        <h2 className="text-center text-3xl font-extrabold text-text-primary tracking-tight">Welcome back</h2>
+        <p className="mt-2 text-center text-sm text-text-secondary font-medium">
           Sign in to your Personal AI Workspace
         </p>
       </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-gray-900 py-8 px-4 shadow-2xl sm:rounded-2xl sm:px-10 border border-gray-800">
+      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md relative z-10">
+        <div className="card-premium py-8 px-4 sm:px-10">
           <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
             <div>
-              <label className="block text-sm font-medium text-gray-300">Email address</label>
-              <div className="mt-1 relative">
+              <label className="block text-sm font-semibold text-text-primary mb-1.5">Email address</label>
+              <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Mail className="h-5 w-5 text-gray-500" />
+                  <Mail className="h-5 w-5 text-text-secondary" />
                 </div>
                 <input
                   {...register("email", { required: true })}
                   type="email"
-                  className="appearance-none block w-full pl-10 px-3 py-3 border border-gray-700 rounded-xl bg-gray-800 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm transition-all"
+                  className="appearance-none block w-full pl-10 px-3 py-3 border border-border-default rounded-xl bg-surface-2 text-text-primary placeholder-text-secondary focus:outline-none focus:ring-1 focus:ring-border-hover focus:border-border-hover sm:text-sm transition-all shadow-sm"
                   placeholder="you@example.com"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-300">Password</label>
-              <div className="mt-1 relative">
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-sm font-semibold text-text-primary">Password</label>
+                <Link href="/personal/forgot-password" className="text-xs font-medium text-text-secondary hover:text-text-primary transition-colors">
+                  Forgot password?
+                </Link>
+              </div>
+              <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Lock className="h-5 w-5 text-gray-500" />
+                  <Lock className="h-5 w-5 text-text-secondary" />
                 </div>
                 <input
                   {...register("password", { required: true })}
                   type="password"
-                  className="appearance-none block w-full pl-10 px-3 py-3 border border-gray-700 rounded-xl bg-gray-800 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm transition-all"
+                  className="appearance-none block w-full pl-10 px-3 py-3 border border-border-default rounded-xl bg-surface-2 text-text-primary placeholder-text-secondary focus:outline-none focus:ring-1 focus:ring-border-hover focus:border-border-hover sm:text-sm transition-all shadow-sm"
                   placeholder="••••••••"
                 />
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div className="text-sm">
-                <Link href="/personal/forgot-password" className="font-medium text-blue-400 hover:text-blue-300">
-                  Forgot your password?
-                </Link>
               </div>
             </div>
 
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent rounded-xl shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-all"
+              className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent rounded-xl shadow-sm text-sm font-medium text-primary-foreground bg-primary hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-border-hover disabled:opacity-50 transition-all group"
             >
-              {isLoading ? "Signing in..." : "Sign in"} <ArrowRight className="w-4 h-4" />
+              {isLoading ? "Signing in..." : "Sign in"} 
+              {!isLoading && <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />}
             </button>
           </form>
 
@@ -130,7 +132,7 @@ export default function PersonalLogin() {
                 type="button"
                 onClick={handleResend}
                 disabled={isResending}
-                className="w-full flex justify-center py-3 px-4 border border-blue-500/30 rounded-xl shadow-sm text-sm font-medium text-blue-400 bg-blue-500/10 hover:bg-blue-500/20 transition-all"
+                className="w-full flex justify-center py-3 px-4 border border-accent/30 rounded-xl shadow-sm text-sm font-medium text-accent bg-accent/10 hover:bg-accent/20 transition-all"
               >
                 {isResending ? "Sending..." : "Resend Verification Email"}
               </button>
@@ -138,22 +140,20 @@ export default function PersonalLogin() {
           )}
 
           <div className="mt-6">
-            {/* OR divider */}
             <div className="relative mb-4">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-700" />
+                <div className="w-full border-t border-border-default" />
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-3 bg-gray-900 text-gray-500 text-xs uppercase tracking-widest">or</span>
+                <span className="px-3 bg-surface text-text-secondary text-xs uppercase tracking-widest font-semibold">or</span>
               </div>
             </div>
 
-            {/* Google Sign-In button */}
             <button
               type="button"
               onClick={handleGoogleLogin}
               disabled={isGoogleLoading}
-              className="w-full flex items-center justify-center gap-3 py-3 px-4 border border-gray-600 rounded-xl shadow-sm text-sm font-medium text-white bg-gray-800 hover:bg-gray-700 disabled:opacity-50 transition-all"
+              className="w-full flex items-center justify-center gap-3 py-3 px-4 border border-border-default rounded-xl shadow-sm text-sm font-medium text-text-primary bg-surface-2 hover:bg-surface-3 disabled:opacity-50 transition-all"
             >
               {isGoogleLoading ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -168,22 +168,10 @@ export default function PersonalLogin() {
               Continue with Google
             </button>
 
-            {/* Don't have an account */}
-            <div className="relative mt-6">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-700" />
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-gray-900 text-gray-400">Don't have an account?</span>
-              </div>
-            </div>
-
-            <div className="mt-6">
-              <Link
-                href="/personal/register"
-                className="w-full flex justify-center py-3 px-4 border border-gray-700 rounded-xl shadow-sm text-sm font-medium text-gray-300 bg-gray-800 hover:bg-gray-700 transition-all"
-              >
-                Create personal account
+            <div className="mt-6 text-center text-sm font-medium text-text-secondary">
+              Don't have an account?{" "}
+              <Link href="/personal/register" className="text-text-primary hover:underline transition-all">
+                Create one
               </Link>
             </div>
           </div>

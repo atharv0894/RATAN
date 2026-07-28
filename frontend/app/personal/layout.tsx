@@ -104,25 +104,53 @@ export default function PersonalLayout({ children }: { children: React.ReactNode
                     if (window.innerWidth < 768) setSidebarOpen(false);
                   }} 
                   className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all group ${
-                    active ? 'bg-[var(--primary)]/10 text-[var(--primary)] border border-[var(--primary)]/20 shadow-sm' : 'text-[var(--text-secondary)] hover:bg-[var(--surface-2)] hover:text-[var(--text-primary)] border border-transparent'
+                    active ? 'bg-primary/10 text-primary border border-primary/20 shadow-sm' : 'text-text-secondary hover:bg-surface-2 hover:text-text-primary border border-transparent'
                   }`}
                 >
-                  <item.icon className={`w-4 h-4 shrink-0 ${active ? 'text-[var(--primary)]' : 'text-[var(--text-secondary)] group-hover:text-[var(--text-primary)]'}`} />
+                  <item.icon className={`w-4 h-4 shrink-0 ${active ? 'text-primary' : 'text-text-secondary group-hover:text-text-primary'}`} />
                   <span>{item.label}</span>
                 </button>
               )
             })}
           </div>
+
+          <div className="px-1">
+            <div className="relative mb-4">
+              <svg className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <input type="text" placeholder="Search chats..." className="w-full bg-surface-2 border border-border-default rounded-lg pl-9 pr-3 py-1.5 text-xs text-text-primary outline-none focus:border-border-hover transition-colors" />
+            </div>
+          </div>
           
           <div>
-            <div className="px-3 pb-2 text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider flex justify-between items-center group cursor-pointer">
-              <span>Recent Chats</span>
+            <div className="px-3 pb-2 text-[10px] font-semibold text-text-secondary uppercase tracking-wider flex justify-between items-center group cursor-pointer">
+              <span>Pinned</span>
+            </div>
+            <div className="space-y-0.5">
+              <button className="w-full flex items-center gap-3 px-3 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-surface-2 rounded-lg transition-colors text-left group">
+                <div className="w-1.5 h-1.5 rounded-full bg-accent"></div>
+                <span className="truncate">Q3 Manufacturing Report Analysis</span>
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <div className="px-3 pt-2 pb-2 text-[10px] font-semibold text-text-secondary uppercase tracking-wider flex justify-between items-center group cursor-pointer">
+              <span>Today</span>
             </div>
             <div className="space-y-0.5">
               {[1, 2, 3].map((i) => (
-                <button key={i} className="w-full flex items-center gap-3 px-3 py-2 text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-2)] rounded-lg transition-colors text-left group">
-                  <MessageSquare className="w-3.5 h-3.5 shrink-0 opacity-60 group-hover:opacity-100" />
-                  <span className="truncate">Sample conversation {i}</span>
+                <button key={i} className="w-full flex items-center justify-between px-3 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-surface-2 rounded-lg transition-colors text-left group">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <MessageSquare className="w-3.5 h-3.5 shrink-0 opacity-60 group-hover:opacity-100" />
+                    <span className="truncate">Conversation about Data {i}</span>
+                  </div>
+                  <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                    <div className="w-1 h-1 rounded-full bg-text-secondary"></div>
+                    <div className="w-1 h-1 rounded-full bg-text-secondary"></div>
+                    <div className="w-1 h-1 rounded-full bg-text-secondary"></div>
+                  </div>
                 </button>
               ))}
             </div>

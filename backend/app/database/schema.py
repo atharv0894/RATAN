@@ -376,3 +376,9 @@ def create_schema(cursor: sqlite3.Cursor):
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_jobs_status ON processing_jobs(status)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_sessions_user ON user_sessions(user_id)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_sessions_token ON user_sessions(refresh_token_hash)")
+
+    # Migrations
+    try:
+        cursor.execute("ALTER TABLE personal_files ADD COLUMN session_id TEXT")
+    except Exception:
+        pass # Column already exists

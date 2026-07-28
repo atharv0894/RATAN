@@ -22,7 +22,7 @@ function PersonalLayoutContent({ children }: { children: React.ReactNode }) {
     queryFn: () => personalChatApi.listSessions(),
     enabled: !!user && user.account_type === "PERSONAL",
   });
-  const sessions = sessionsData?.data?.data?.sessions || [];
+  const sessions = sessionsData?.data?.data?.chats || [];
 
   // Auth routes that should NOT be blocked by this layout
   const isAuthRoute = pathname.startsWith('/personal/login') || 

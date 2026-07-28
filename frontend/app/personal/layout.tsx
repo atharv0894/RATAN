@@ -80,7 +80,12 @@ function PersonalLayoutContent({ children }: { children: React.ReactNode }) {
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => personalChatApi.deleteSession(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["personal_chat_sessions"] }),
+    onSuccess: (data, deletedId) => {
+      queryClient.invalidateQueries({ queryKey: ["personal_chat_sessions"] });
+      if (searchParams?.get("chat_id") === deletedId) {
+        router.push("/personal");
+      }
+    },
   });
 
   const pinnedSessions = sessions.filter((s: any) => s.is_pinned);

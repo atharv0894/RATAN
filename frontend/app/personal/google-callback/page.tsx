@@ -4,6 +4,7 @@ import { useEffect, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import { setTokens } from "@/lib/api";
 import { Loader2 } from "lucide-react";
+import { useAuth } from "@/lib/auth-context";
 
 /**
  * /personal/google-callback
@@ -15,21 +16,26 @@ import { Loader2 } from "lucide-react";
  */
 function GoogleCallbackContent() {
   const router = useRouter();
+  const { refreshUser } = useAuth();
 
   useEffect(() => {
-    const hash = window.location.hash.substring(1); // strip leading #
-    const params = new URLSearchParams(hash);
-    const accessToken = params.get("access_token");
-    const refreshToken = params.get("refresh_token");
+    const handleTokens = async () => {
+      const hash = window.location.hash.substring(1); // strip leading #
+      const params = new URLSearchParams(hash);
+      const accessToken = params.get("access_token");
+      const refreshToken = params.get("refresh_token");
 
-    if (accessToken && refreshToken) {
-      setTokens(accessToken, refreshToken);
-      router.replace("/personal");
-    } else {
-      // Something went wrong — send back to login with error
-      router.replace("/personal/login?error=google_failed");
-    }
-  }, [router]);
+      if (accessToken && refreshToken) {
+        setTokens(accessToken, refreshToken);
+        await refreshUser(); // Update global auth state before redirecting
+        router.replace("/personal");
+      } else {
+        // Something went wrong — send back to login with error
+        router.replace("/personal/login?error=google_failed");
+      }
+    };
+    handleTokens();
+  }, [router, refreshUser]);
 
   return (
     <div className="flex flex-col items-center gap-4 text-white">

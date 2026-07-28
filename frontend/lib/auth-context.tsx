@@ -17,6 +17,7 @@ interface AuthContextType {
   registerPersonal: (data: any) => Promise<void>;
   registerEnterprise: (data: any) => Promise<void>;
   logout: () => void;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -31,6 +32,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setTimeout(() => setIsLoading(false), 0);
       return;
     }
+    setIsLoading(true);
     try {
       const { data } = await authApi.get_me();
       setUser(data.data);
@@ -93,7 +95,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     <AuthContext.Provider value={{ 
       user, isLoading, isAuthenticated: !!user, 
       loginPersonal, loginEnterprise, loginSuperAdmin, 
-      registerPersonal, registerEnterprise, logout 
+      registerPersonal, registerEnterprise, logout, refreshUser 
     }}>
       {children}
     </AuthContext.Provider>

@@ -36,7 +36,7 @@ class RAGService:
             logging.warning("GROQ_API_KEY missing.")
             
         self.primary_client = ChatGroq(
-            model="llama3-70b-8192",
+            model="openai/gpt-oss-120b",
             temperature=0,
             api_key=groq_api_key,
             max_retries=3,

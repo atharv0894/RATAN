@@ -177,7 +177,7 @@ export default function PersonalKnowledgePage() {
                   <tr className="border-b border-border-default">
                     <th className="px-4 py-3 font-semibold w-10 text-center"><input type="checkbox" className="rounded border-border-default bg-surface text-primary focus:ring-primary/20 transition-all cursor-pointer" /></th>
                     <th className="px-4 py-3 text-[11px] font-semibold text-text-secondary uppercase tracking-wider">Document Name</th>
-                    <th className="px-4 py-3 text-[11px] font-semibold text-text-secondary uppercase tracking-wider hidden md:table-cell">Size</th>
+
                     <th className="px-4 py-3 text-[11px] font-semibold text-text-secondary uppercase tracking-wider hidden sm:table-cell">Uploaded</th>
                     <th className="px-4 py-3 text-[11px] font-semibold text-text-secondary uppercase tracking-wider text-right">Actions</th>
                   </tr>
@@ -185,14 +185,14 @@ export default function PersonalKnowledgePage() {
                 <tbody className="text-sm divide-y divide-border-default/50">
                   {isLoading ? (
                     <tr>
-                      <td colSpan={5} className="px-4 py-16 text-center text-text-secondary">
+                      <td colSpan={4} className="px-4 py-16 text-center text-text-secondary">
                         <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
                         <p>Loading files...</p>
                       </td>
                     </tr>
                   ) : filteredFiles.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="px-4 py-16 text-center text-text-secondary">
+                      <td colSpan={4} className="px-4 py-16 text-center text-text-secondary">
                         <p>No files found. Upload your first document!</p>
                       </td>
                     </tr>
@@ -207,7 +207,7 @@ export default function PersonalKnowledgePage() {
                           <span className="font-medium text-text-primary group-hover:text-primary transition-colors truncate max-w-xs">{file.filename}</span>
                         </div>
                       </td>
-                      <td className="px-4 py-3.5 text-text-secondary text-xs hidden md:table-cell font-mono">{formatSize(file.file_size)}</td>
+
                       <td className="px-4 py-3.5 text-text-secondary text-xs hidden sm:table-cell">{formatRelativeTime(file.created_at * 1000)}</td>
                       <td className="px-4 py-3.5 text-right flex items-center justify-end gap-1">
                         <button 
@@ -251,8 +251,6 @@ export default function PersonalKnowledgePage() {
                   <h3 className="font-semibold text-text-primary truncate mb-1" title={file.filename}>{file.filename}</h3>
                   <div className="flex items-center gap-2 text-xs text-text-secondary">
                     <span>{file.mime_type.split('/').pop()?.toUpperCase() || 'FILE'}</span>
-                    <span>•</span>
-                    <span>{formatSize(file.file_size)}</span>
                   </div>
                 </div>
                 <div className="mt-auto pt-4 flex items-center justify-between border-t border-border-default">

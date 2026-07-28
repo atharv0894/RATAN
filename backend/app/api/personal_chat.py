@@ -64,6 +64,22 @@ def get_personal_chat(session_id: str, current_user: dict = Depends(RequirePerso
     conn.close()
     return APISuccessResponse(data={"session": dict(session), "messages": messages})
 
+@router.patch("/{session_id}/pin", response_model=APISuccessResponse)
+def toggle_pin_personal_chat(session_id: str, current_user: dict = Depends(RequirePersonalUser)):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, is_pinned FROM personal_chats WHERE id = ? AND user_id = ?", (session_id, current_user["id"]))
+    row = cursor.fetchone()
+    if not row:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Chat not found")
+        
+    new_pin = 0 if row["is_pinned"] else 1
+    cursor.execute("UPDATE personal_chats SET is_pinned = ?, updated_at = ? WHERE id = ?", (new_pin, time.time(), session_id))
+    conn.commit()
+    conn.close()
+    return APISuccessResponse(data={"session_id": session_id, "is_pinned": bool(new_pin)})
+
 @router.delete("/{session_id}", response_model=APISuccessResponse)
 def delete_personal_chat(session_id: str, current_user: dict = Depends(RequirePersonalUser)):
     conn = get_db_connection()

@@ -188,6 +188,7 @@ export const personalChatApi = {
   listSessions: () => api.get("/personal/chat/sessions"),
   getSession: (id: string) => api.get(`/personal/chat/sessions/${id}`),
   deleteSession: (id: string) => api.delete(`/personal/chat/sessions/${id}`),
+  pinSession: (id: string) => api.patch(`/personal/chat/sessions/${id}/pin`),
 };
 
 // Dashboard

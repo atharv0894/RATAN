@@ -1,19 +1,21 @@
 "use client";
-import React, { useState, useEffect } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import React, { useState, useEffect, Suspense } from "react";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
-import { MessageSquare, Database, Settings, User as UserIcon, LogOut, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { MessageSquare, Database, Settings, User as UserIcon, LogOut, PanelLeftClose, PanelLeftOpen, Pin, Trash2 } from "lucide-react";
 
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { personalChatApi } from "@/lib/api";
 
-export default function PersonalLayout({ children }: { children: React.ReactNode }) {
+function PersonalLayoutContent({ children }: { children: React.ReactNode }) {
   const { user, isLoading, logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mounted, setMounted] = useState(false);
+  const queryClient = useQueryClient();
 
   const { data: sessionsData, isLoading: sessionsLoading } = useQuery({
     queryKey: ["personal_chat_sessions"],
@@ -70,6 +72,59 @@ export default function PersonalLayout({ children }: { children: React.ReactNode
     { label: "My Knowledge", href: "/personal/knowledge", icon: Database },
     { label: "Settings", href: "/personal/settings", icon: Settings },
   ];
+
+  const pinMutation = useMutation({
+    mutationFn: (id: string) => personalChatApi.pinSession(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["personal_chat_sessions"] }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => personalChatApi.deleteSession(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["personal_chat_sessions"] }),
+  });
+
+  const pinnedSessions = sessions.filter((s: any) => s.is_pinned);
+  const recentSessions = sessions.filter((s: any) => !s.is_pinned);
+
+  // Helper to render a session item
+  const renderSession = (session: any) => {
+    const isActive = searchParams?.get("chat_id") === session.id;
+    return (
+      <div key={session.id} className="group relative w-full flex items-center justify-between px-3 py-2 text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-2)] rounded-lg transition-colors cursor-pointer">
+        <div 
+          className="flex items-center gap-3 min-w-0 flex-1"
+          onClick={() => {
+            router.push(`/personal?chat_id=${session.id}`);
+            if (window.innerWidth < 768) setSidebarOpen(false);
+          }}
+        >
+          {session.is_pinned ? (
+            <div className="w-1.5 h-1.5 rounded-full bg-accent"></div>
+          ) : (
+            <MessageSquare className="w-3.5 h-3.5 shrink-0 opacity-60 group-hover:opacity-100" />
+          )}
+          <span className={`truncate ${isActive ? 'text-[var(--text-primary)] font-medium' : ''}`}>{session.title || "New Chat"}</span>
+        </div>
+        
+        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-2 shrink-0">
+          <button 
+            onClick={(e) => { e.stopPropagation(); pinMutation.mutate(session.id); }}
+            className="p-1 hover:text-[var(--text-primary)] hover:bg-[var(--surface-3)] rounded text-[var(--text-secondary)] transition-colors"
+            title={session.is_pinned ? "Unpin chat" : "Pin chat"}
+          >
+            <Pin className={`w-3.5 h-3.5 ${session.is_pinned ? 'fill-current' : ''}`} />
+          </button>
+          <button 
+            onClick={(e) => { e.stopPropagation(); deleteMutation.mutate(session.id); }}
+            className="p-1 hover:text-[var(--color-danger)] hover:bg-[var(--color-danger)]/10 rounded text-[var(--text-secondary)] transition-colors"
+            title="Delete chat"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="flex h-screen bg-[var(--bg)] text-[var(--text-primary)] overflow-hidden font-sans selection:bg-primary/30">
@@ -136,8 +191,17 @@ export default function PersonalLayout({ children }: { children: React.ReactNode
               <input type="text" placeholder="Search chats..." className="w-full bg-surface-2 border border-border-default rounded-lg pl-9 pr-3 py-1.5 text-xs text-text-primary outline-none focus:border-border-hover transition-colors" />
             </div>
           </div>
-          
 
+          {pinnedSessions.length > 0 && (
+            <div>
+              <div className="px-3 pb-2 text-[10px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider flex justify-between items-center group cursor-pointer">
+                <span>Pinned</span>
+              </div>
+              <div className="space-y-0.5">
+                {pinnedSessions.map(renderSession)}
+              </div>
+            </div>
+          )}
 
           <div>
             <div className="px-3 pt-2 pb-2 text-[10px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider flex justify-between items-center group cursor-pointer">
@@ -146,22 +210,8 @@ export default function PersonalLayout({ children }: { children: React.ReactNode
             <div className="space-y-0.5">
               {sessionsLoading ? (
                 <div className="px-3 py-2 text-sm text-[var(--text-secondary)]">Loading chats...</div>
-              ) : sessions && sessions.length > 0 ? (
-                sessions.map((session: any) => (
-                  <button 
-                    key={session.id} 
-                    onClick={() => {
-                      router.push(`/personal?chat_id=${session.id}`);
-                      if (window.innerWidth < 768) setSidebarOpen(false);
-                    }}
-                    className="w-full flex items-center justify-between px-3 py-2 text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-2)] rounded-lg transition-colors text-left group"
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <MessageSquare className="w-3.5 h-3.5 shrink-0 opacity-60 group-hover:opacity-100" />
-                      <span className="truncate">{session.title || "New Chat"}</span>
-                    </div>
-                  </button>
-                ))
+              ) : recentSessions.length > 0 ? (
+                recentSessions.map(renderSession)
               ) : (
                 <div className="px-3 py-2 text-sm text-[var(--text-secondary)]">No recent chats</div>
               )}

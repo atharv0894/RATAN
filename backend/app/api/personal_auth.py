@@ -40,7 +40,8 @@ def register_personal_user(payload: PersonalRegisterRequest):
     verification_token = secrets.token_urlsafe(32)
     now = time.time()
     # Expires in 24 hours
-    verification_token_expires_at = int(now + (24 * 60 * 60))
+    import datetime
+    verification_token_expires_at = datetime.datetime.fromtimestamp(now + (24 * 60 * 60)).strftime('%Y-%m-%d %H:%M:%S')
     
     try:
         cursor.execute(
@@ -145,14 +146,21 @@ def verify_email(payload: VerifyEmailRequest):
         from fastapi import HTTPException
         raise HTTPException(status_code=400, detail="Invalid verification token.")
         
-    if user["verification_token_expires_at"] and user["verification_token_expires_at"] < now:
+    exp = user["verification_token_expires_at"]
+    if hasattr(exp, "timestamp"):
+        exp = exp.timestamp()
+        
+    if exp and exp < now:
         conn.close()
         from fastapi import HTTPException
         raise HTTPException(status_code=400, detail="Verification token has expired. Please request a new one.")
         
+    import datetime
+    now_str = datetime.datetime.fromtimestamp(now).strftime('%Y-%m-%d %H:%M:%S')
+    
     cursor.execute(
         "UPDATE users SET is_verified = 1, email_verified_at = ?, verification_token = NULL, verification_token_expires_at = NULL WHERE id = ?",
-        (now, user["id"])
+        (now_str, user["id"])
     )
     conn.commit()
     conn.close()

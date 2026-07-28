@@ -77,17 +77,30 @@ function ChatContent() {
          queryClient.invalidateQueries({ queryKey: ["personal_chat_sessions"] });
       }
 
-      // Simulate streaming logic (since the real LLM endpoint for personal chat isn't hooked up yet)
+      // Convert history for API
+      const history = messages.map(m => ({ role: m.role, content: m.content }));
+      
+      // Make real API call
+      const { data } = await personalChatApi.send(userMessage, history, undefined, currentSessionId || undefined);
+      const resp = data.data;
+      
+      setIsTyping(false);
+      setMessages(prev => [...prev, { 
+        role: "assistant", 
+        content: resp.answer, 
+        id: (Date.now() + 1).toString(),
+        citations: resp.citations,
+        confidence: resp.confidence_score,
+        follow_up_questions: resp.follow_up_questions,
+        provider: resp.provider,
+        timestamp: Date.now() / 1000
+      }]);
+      
     } catch (err) {
       console.error(err);
-      toast.error("Failed to create chat session");
-    }
-    
-    // Simulate streaming
-    setTimeout(() => {
+      toast.error("Failed to get response from AI");
       setIsTyping(false);
-      setMessages(prev => [...prev, { role: "assistant", content: "This is a placeholder response for the new Personal AI Workspace. Connect to the real `/api/v1/personal/message` endpoint to enable true RAG and LLM streaming.\n\n```python\nprint(\"Hello World\")\n```", id: (Date.now() + 1).toString() }]);
-    }, 1500);
+    }
   };
 
   return (

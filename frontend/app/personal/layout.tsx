@@ -24,6 +24,21 @@ function PersonalLayoutContent({ children }: { children: React.ReactNode }) {
   });
   const sessions = sessionsData?.data?.data?.chats || [];
 
+  const pinMutation = useMutation({
+    mutationFn: (id: string) => personalChatApi.pinSession(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["personal_chat_sessions"] }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => personalChatApi.deleteSession(id),
+    onSuccess: (data, deletedId) => {
+      queryClient.invalidateQueries({ queryKey: ["personal_chat_sessions"] });
+      if (searchParams?.get("chat_id") === deletedId) {
+        router.push("/personal");
+      }
+    },
+  });
+
   // Auth routes that should NOT be blocked by this layout
   const isAuthRoute = pathname.startsWith('/personal/login') || 
                       pathname.startsWith('/personal/register') || 
@@ -72,21 +87,6 @@ function PersonalLayoutContent({ children }: { children: React.ReactNode }) {
     { label: "My Knowledge", href: "/personal/knowledge", icon: Database },
     { label: "Settings", href: "/personal/settings", icon: Settings },
   ];
-
-  const pinMutation = useMutation({
-    mutationFn: (id: string) => personalChatApi.pinSession(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["personal_chat_sessions"] }),
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => personalChatApi.deleteSession(id),
-    onSuccess: (data, deletedId) => {
-      queryClient.invalidateQueries({ queryKey: ["personal_chat_sessions"] });
-      if (searchParams?.get("chat_id") === deletedId) {
-        router.push("/personal");
-      }
-    },
-  });
 
   const pinnedSessions = sessions.filter((s: any) => s.is_pinned);
   const recentSessions = sessions.filter((s: any) => !s.is_pinned);

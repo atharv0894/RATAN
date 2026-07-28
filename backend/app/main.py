@@ -158,6 +158,21 @@ app.include_router(personal_files.router, prefix="/api/v1/personal/files", tags=
 app.include_router(personal_memory.router, prefix="/api/v1/personal/memory", tags=["personal-memory"])
 
 
+@app.on_event("startup")
+async def startup_event():
+    from app.database.sqlite import get_db_connection
+    import logging
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("ALTER TABLE personal_files ADD COLUMN session_id TEXT")
+        conn.commit()
+        conn.close()
+        logging.info("Successfully added session_id column to personal_files in TiDB.")
+    except Exception as e:
+        # Ignore if column already exists
+        pass
+
 @app.get("/")
 def read_root():
     return {"message": "Welcome to RATAN API"}

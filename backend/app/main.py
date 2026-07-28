@@ -65,7 +65,7 @@ async def audit_log_middleware(request: Request, call_next):
         logging.error(f"Unhandled exception in middleware: {exc}", exc_info=True)
         response = JSONResponse(
             status_code=500,
-            content={"success": False, "error": {"code": "INTERNAL_ERROR", "message": "Unexpected server error."}},
+            content={"success": False, "error": {"code": "INTERNAL_ERROR", "message": f"Unexpected server error: {str(exc)}"}},
         )
     process_time = (time.time() - start_time) * 1000
     logging.info(

@@ -189,6 +189,7 @@ export const personalChatApi = {
   getSession: (id: string) => api.get(`/personal/chat/${id}`),
   deleteSession: (id: string) => api.delete(`/personal/chat/${id}`),
   pinSession: (id: string) => api.patch(`/personal/chat/${id}/pin`),
+  renameSession: (id: string, title: string) => api.patch(`/personal/chat/${id}/rename`, { title }),
 };
 
 // Dashboard

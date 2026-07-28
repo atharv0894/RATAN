@@ -262,3 +262,11 @@ function PersonalLayoutContent({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
+
+export default function PersonalLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <Suspense fallback={<div className="h-screen w-screen bg-bg"></div>}>
+      <PersonalLayoutContent>{children}</PersonalLayoutContent>
+    </Suspense>
+  );
+}

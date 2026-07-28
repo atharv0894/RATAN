@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useRef, useEffect } from "react";
-import { Send, Bot, Paperclip, Copy, RotateCcw, ThumbsUp, ThumbsDown, FileText, ChevronDown, Sparkles, Loader2 } from "lucide-react";
+import { Send, Bot, Paperclip, Copy, RotateCcw, ThumbsUp, ThumbsDown, FileText, ChevronDown, Sparkles, Loader2, ArrowUp, Mic, Plus, X } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { personalFilesApi } from "@/lib/api";
@@ -13,14 +13,16 @@ export default function PersonalChatPage() {
   const [messages, setMessages] = useState<Array<{role: "user"|"assistant", content: string, id: string}>>([]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [attachedFile, setAttachedFile] = useState<{name: string, id: string} | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
   const uploadMutation = useMutation({
     mutationFn: (file: File) => personalFilesApi.upload(file),
-    onSuccess: () => {
-      toast.success("File attached to knowledge base");
+    onSuccess: (data, file) => {
+      setAttachedFile({ name: file.name, id: data.data?.document_id || "temp" });
+      toast.success("File attached");
       queryClient.invalidateQueries({ queryKey: ["personal_files"] });
     },
     onError: (err: any) => {
@@ -30,12 +32,12 @@ export default function PersonalChatPage() {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      Array.from(e.target.files).forEach((file) => {
-        uploadMutation.mutate(file);
-      });
+      uploadMutation.mutate(e.target.files[0]);
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
+
+  const removeAttachedFile = () => setAttachedFile(null);
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
@@ -203,53 +205,69 @@ export default function PersonalChatPage() {
         <div className="max-w-3xl mx-auto pointer-events-auto">
           <form 
             onSubmit={handleSubmit} 
-            className="relative flex flex-col gap-2 bg-surface border border-border-default shadow-card rounded-[1.5rem] p-3 focus-within:border-border-hover focus-within:shadow-card-hover transition-all duration-300"
+            className="relative flex flex-col bg-[#2A2A2A] shadow-card rounded-[2rem] p-2 transition-all duration-300"
           >
-            <textarea
-              rows={1}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSubmit();
-                }
-              }}
-              placeholder="Ask anything..."
-              className="w-full max-h-40 bg-transparent border-0 focus:ring-0 resize-none py-2 px-3 text-text-primary placeholder-text-secondary outline-none text-[15px] leading-relaxed"
-              style={{ minHeight: '24px' }}
-            />
+            {/* File Chip Row */}
+            {attachedFile && (
+              <div className="px-3 pt-2 pb-1">
+                <div className="inline-flex items-center gap-3 bg-[#1A1A1A] border border-border-default rounded-xl p-2 pr-3 max-w-[250px]">
+                  <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center shrink-0">
+                    <FileText className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="flex flex-col min-w-0 flex-1">
+                    <span className="text-sm font-semibold text-text-primary truncate">{attachedFile.name}</span>
+                    <span className="text-xs text-text-secondary">File</span>
+                  </div>
+                  <button type="button" onClick={removeAttachedFile} className="w-5 h-5 bg-text-primary text-bg rounded-full flex items-center justify-center shrink-0 hover:bg-text-secondary transition-colors">
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
+            )}
             
-            <div className="flex items-center justify-between mt-1 px-1">
-              <div className="flex items-center gap-1">
-                <input 
-                  type="file" 
-                  multiple 
-                  className="hidden" 
-                  ref={fileInputRef} 
-                  onChange={handleFileChange} 
-                />
-                <button 
-                  type="button" 
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploadMutation.isPending}
-                  className="p-2 text-text-secondary hover:text-text-primary hover:bg-surface-2 rounded-lg transition-colors flex items-center gap-1.5 text-xs font-medium disabled:opacity-50"
-                >
-                  {uploadMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Paperclip className="w-4 h-4" />}
-                  <span className="hidden sm:inline">{uploadMutation.isPending ? "Attaching..." : "Attach"}</span>
+            <div className="flex items-end gap-2 px-2 py-1">
+              <input 
+                type="file" 
+                className="hidden" 
+                ref={fileInputRef} 
+                onChange={handleFileChange} 
+              />
+              <button 
+                type="button" 
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadMutation.isPending}
+                className="p-2.5 text-text-secondary hover:text-text-primary hover:bg-[#3A3A3A] rounded-full transition-colors shrink-0 disabled:opacity-50 mt-1"
+              >
+                {uploadMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-6 h-6" />}
+              </button>
+              
+              <textarea
+                rows={1}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSubmit();
+                  }
+                }}
+                placeholder="Ask anything"
+                className="flex-1 bg-transparent border-0 focus:ring-0 resize-none py-3 text-text-primary placeholder-text-secondary outline-none text-[16px] leading-relaxed self-center max-h-40 overflow-y-auto"
+                style={{ minHeight: '48px' }}
+              />
+              
+              <div className="flex items-center gap-1.5 shrink-0 mt-1">
+                <button type="button" className="p-2.5 text-text-secondary hover:text-text-primary hover:bg-[#3A3A3A] rounded-full transition-colors">
+                  <Mic className="w-5 h-5" />
                 </button>
-                <button type="button" className="p-2 text-text-secondary hover:text-text-primary hover:bg-surface-2 rounded-lg transition-colors flex items-center gap-1.5 text-xs font-medium">
-                  <FileText className="w-4 h-4" />
-                  <span className="hidden sm:inline">Search Docs</span>
+                <button 
+                  type="submit" 
+                  disabled={!input.trim() || isTyping}
+                  className={`p-2.5 rounded-full transition-all duration-300 disabled:opacity-50 ${input.trim() ? 'bg-[#DE6F44] hover:bg-[#cc633a] text-white shadow-sm' : 'bg-[#3A3A3A] text-text-secondary'}`}
+                >
+                  <ArrowUp className="w-5 h-5" />
                 </button>
               </div>
-              <button 
-                type="submit" 
-                disabled={!input.trim() || isTyping}
-                className="p-2 bg-primary hover:bg-primary-hover disabled:bg-surface-3 disabled:text-text-secondary text-primary-foreground rounded-full transition-all duration-300 disabled:opacity-50"
-              >
-                <Send className="w-4 h-4" />
-              </button>
             </div>
           </form>
           <div className="text-center mt-3 text-[11px] text-text-secondary font-medium">

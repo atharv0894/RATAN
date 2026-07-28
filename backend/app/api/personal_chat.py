@@ -86,6 +86,16 @@ def send_personal_message(request: ChatRequest, current_user: dict = Depends(Req
         attached_filename = match.group(1).strip()
         search_query = match.group(2).strip()
         base_where["filename"] = attached_filename
+        
+        # Associate this file with the newly created chat session so it doesn't clutter 'My Knowledge'
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE personal_files SET session_id = ? WHERE filename = ? AND user_id = ? AND session_id IS NULL",
+            (request.session_id, attached_filename, current_user["id"])
+        )
+        conn.commit()
+        conn.close()
 
     result = rag_service.generate_answer(
         query=search_query,

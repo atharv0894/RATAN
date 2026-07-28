@@ -145,9 +145,12 @@ export const authApi = {
 // Personal Files
 export const personalFilesApi = {
   list: () => api.get("/personal/files"),
-  upload: (file: File) => {
+  upload: (file: File, session_id?: string) => {
     const form = new FormData();
     form.append("file", file);
+    if (session_id) {
+      form.append("session_id", session_id);
+    }
     return api.post("/personal/files", form, { headers: { "Content-Type": "multipart/form-data" } });
   },
   delete: (id: string) => api.delete(`/personal/files/${id}`),

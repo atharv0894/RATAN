@@ -126,10 +126,10 @@ function ChatContent() {
   // ── File Upload ──────────────────────────────────────────────────────────────
 
   const uploadMutation = useMutation({
-    mutationFn: (file: File) => personalFilesApi.upload(file),
-    onSuccess: (data, file) => {
-      setAttachedFile({ name: file.name, id: data.data?.document_id || "temp" });
-      toast.success(`"${file.name}" attached and indexed`);
+    mutationFn: ({ file, chatId }: { file: File; chatId?: string }) => personalFilesApi.upload(file, chatId),
+    onSuccess: (data, variables) => {
+      setAttachedFile({ name: variables.file.name, id: data.data?.id || "temp" });
+      toast.success(`"${variables.file.name}" attached and indexing started`);
       queryClient.invalidateQueries({ queryKey: ["personal_files"] });
     },
     onError: (err: any) => {
@@ -139,7 +139,8 @@ function ChatContent() {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      uploadMutation.mutate(e.target.files[0]);
+      const chatId = searchParams.get("chat_id") || undefined;
+      uploadMutation.mutate({ file: e.target.files[0], chatId });
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };

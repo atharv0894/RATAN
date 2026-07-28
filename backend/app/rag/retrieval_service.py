@@ -73,8 +73,15 @@ class RetrievalService:
                 conn = get_db_connection()
                 cursor = conn.cursor()
                 placeholders = ','.join(['?'] * len(retrieved_doc_ids))
+                
+                # Check Enterprise Documents
                 cursor.execute(f"SELECT id FROM documents WHERE id IN ({placeholders}) AND deleted_at IS NULL AND status = 'READY'", list(retrieved_doc_ids))
-                valid_doc_ids = {row['id'] for row in cursor.fetchall()}
+                valid_doc_ids.update(row['id'] for row in cursor.fetchall())
+                
+                # Check Personal Files
+                cursor.execute(f"SELECT id FROM personal_files WHERE id IN ({placeholders}) AND deleted_at IS NULL", list(retrieved_doc_ids))
+                valid_doc_ids.update(row['id'] for row in cursor.fetchall())
+                
                 conn.close()
             except Exception as e:
                 import logging

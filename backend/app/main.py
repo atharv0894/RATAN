@@ -21,16 +21,6 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS middleware for frontend communication
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:3000", "https://ratan-agya0j0n1-atharv-shindes-projects.vercel.app", "https://ratan-uwno.onrender.com"],
-    allow_origin_regex="https://.*\.vercel\.app",
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 import time
 from fastapi import Request
 
@@ -66,6 +56,24 @@ async def validation_exception_handler(request, exc: RequestValidationError):
             }
         }
     )
+
+# Important: In Starlette/FastAPI, the last middleware added is the outermost layer.
+# CORSMiddleware must be the outermost layer so it intercepts OPTIONS requests before auth or audit logs.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "https://ratan-six.vercel.app",
+        "https://ratan-agya0j0n1-atharv-shindes-projects.vercel.app",
+        "https://ratan-uwno.onrender.com"
+    ],
+    allow_origin_regex="https://.*\.vercel\.app",
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["*"]
+)
 
 # Include all API routers
 app.include_router(health.router, prefix="", tags=["health"])

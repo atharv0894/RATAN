@@ -73,7 +73,7 @@ export default function LandingPage() {
               <p className="text-text-secondary mb-8 leading-relaxed font-medium flex-1">
                 Your private AI assistant. Ask questions, analyze documents, and build a localized knowledge base effortlessly.
               </p>
-              <Link href="/personal/login" className="w-full bg-primary hover:bg-primary-hover text-primary-foreground font-medium py-3.5 px-6 rounded-xl transition-all duration-300 flex items-center justify-center gap-2 group/btn shadow-sm">
+              <Link href="/personal/login" className="w-full bg-primary hover:bg-primary-hover text-background font-medium py-3.5 px-6 rounded-xl transition-all duration-300 flex items-center justify-center gap-2 group/btn shadow-sm">
                 Get Started <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
               </Link>
             </div>

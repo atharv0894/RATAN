@@ -54,8 +54,16 @@ def register_personal_user(payload: PersonalRegisterRequest):
         conn.commit()
         
         # Send email asynchronously or synchronously
-        EmailService.send_verification_email(payload.email, verification_token)
+        email_sent = EmailService.send_verification_email(payload.email, verification_token)
         
+        # Hackathon fallback: If Resend API is missing or fails due to free tier restrictions, auto-verify the user.
+        if not email_sent:
+            cursor.execute(
+                "UPDATE users SET is_verified = 1, email_verified_at = ?, verification_token = NULL, verification_token_expires_at = NULL WHERE id = ?",
+                (now, user_id)
+            )
+            conn.commit()
+            
     except Exception as e:
         conn.rollback()
         conn.close()
@@ -186,7 +194,18 @@ def resend_verification(payload: ResendVerificationRequest):
     conn.commit()
     conn.close()
     
-    EmailService.send_verification_email(payload.email, new_token)
+    email_sent = EmailService.send_verification_email(payload.email, new_token)
     
+    if not email_sent:
+        conn = get_tidb_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE users SET is_verified = 1, email_verified_at = ?, verification_token = NULL, verification_token_expires_at = NULL WHERE id = ?",
+            (now, user["id"])
+        )
+        conn.commit()
+        conn.close()
+        return APISuccessResponse(data={"message": "Email service is limited. Your account has been automatically verified for this session. You can now log in."})
+        
     return APISuccessResponse(data={"message": "If your email is registered and unverified, a verification link has been sent."})
 

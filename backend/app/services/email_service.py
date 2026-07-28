@@ -30,6 +30,10 @@ class EmailService:
         </div>
         """
 
+        if not os.environ.get("RESEND_API"):
+            print("Warning: RESEND_API key not found. Email not sent.")
+            return False
+            
         try:
             params = {
                 "from": "RATAN <onboarding@resend.dev>",
@@ -40,5 +44,5 @@ class EmailService:
             email = resend.Emails.send(params)
             return True
         except Exception as e:
-            print(f"Failed to send verification email: {e}")
+            print(f"Failed to send verification email (likely due to Resend free tier restrictions): {e}")
             return False

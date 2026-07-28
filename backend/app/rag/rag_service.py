@@ -43,17 +43,7 @@ class RAGService:
             timeout=30.0
         ) if groq_api_key else None
         
-        gemini_api_key = os.environ.get("GOOGLE_API_KEY")
-        if not gemini_api_key:
-            logging.warning("GOOGLE_API_KEY missing.")
-            
-        self.fallback_client = ChatGoogleGenerativeAI(
-            model="gemini-1.5-flash",
-            google_api_key=gemini_api_key,
-            temperature=0.1,
-            max_retries=2,
-            timeout=30.0
-        ) if gemini_api_key else None
+
 
     def generate_answer(self, query: str, chat_history: list = None, debug: bool = False, base_where: dict = None):
         t0 = time.time()
@@ -150,18 +140,9 @@ class RAGService:
             response_content = response.content
             generated_by = "Groq"
         except Exception as e:
-            logging.warning(f"[LLM] Primary failed: {str(e)}")
-            try:
-                if not self.fallback_client:
-                    raise ValueError("Fallback client not initialized.")
-                logging.info("[LLM] Attempting Fallback (Gemini)")
-                response = self.fallback_client.invoke(messages)
-                response_content = response.content
-                generated_by = "Gemini"
-            except Exception as fallback_e:
-                logging.error(f"[LLM] Fallback failed: {str(fallback_e)}")
-                response_content = '{"answer": "System is currently unavailable.", "citations": [], "confidence_score": 0.0, "follow_up_questions": []}'
-                generated_by = "Error"
+            logging.error(f"[LLM] Primary failed: {str(e)}")
+            response_content = '{"answer": "System is currently unavailable.", "citations": [], "confidence_score": 0.0, "follow_up_questions": []}'
+            generated_by = "Error"
                 
         llm_latency = time.time() - t_llm_start
         

@@ -1,17 +1,24 @@
 # pyrefly: ignore [missing-import]
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 # pyrefly: ignore [missing-import]
 from fastapi.middleware.cors import CORSMiddleware
 # pyrefly: ignore [missing-import]
+from fastapi.responses import JSONResponse
+# pyrefly: ignore [missing-import]
 from dotenv import load_dotenv
+import logging
+import time
 
 # Load environment variables FIRST before importing any internal modules
 load_dotenv()
 
-from app.api import health, documents, chat, stats, entities, cleanup, auth, personal_auth, enterprise_auth, super_admin_auth, users, organizations, plants, departments, jobs, dashboard, admin, settings, admin_telemetry, personal_chat, personal_files, personal_memory, personal_google_auth
-# pyrefly: ignore [missing-import]
-from fastapi.responses import JSONResponse
-import logging
+from app.api import (
+    health, documents, chat, stats, entities, cleanup, auth,
+    personal_auth, enterprise_auth, super_admin_auth, users,
+    organizations, plants, departments, jobs, dashboard, admin,
+    settings, admin_telemetry, personal_chat, personal_files,
+    personal_memory, personal_google_auth
+)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
@@ -21,22 +28,44 @@ app = FastAPI(
     version="1.0.0"
 )
 
-import time
-from fastapi import Request
+# ─── CORS ──────────────────────────────────────────────────────────────────────
+# MUST be the first add_middleware call so it is the OUTERMOST layer.
+# In Starlette, add_middleware stacks in LIFO order, meaning the first call
+# registered here wraps everything else and is therefore always executed first
+# on every request — including OPTIONS preflight and error responses.
+ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "https://ratan-six.vercel.app",
+    "https://ratan-agya0j0n1-atharv-shindes-projects.vercel.app",
+    "https://ratan-uwno.onrender.com",
+]
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=ALLOWED_ORIGINS,
+    allow_origin_regex=r"https://.*\.vercel\.app",
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["*"],
+)
+
+# ─── Audit Logging Middleware ───────────────────────────────────────────────────
 @app.middleware("http")
 async def audit_log_middleware(request: Request, call_next):
     start_time = time.time()
     response = await call_next(request)
     process_time = (time.time() - start_time) * 1000
-    
-    # In production, we write this to `audit_logs` table via async tasks
-    # For now, structured standard out
-    logging.info(f"AUDIT | {request.method} {request.url.path} | Status: {response.status_code} | Latency: {process_time:.2f}ms | IP: {request.client.host if request.client else 'unknown'}")
-    
+    logging.info(
+        f"AUDIT | {request.method} {request.url.path} | "
+        f"Status: {response.status_code} | Latency: {process_time:.2f}ms | "
+        f"IP: {request.client.host if request.client else 'unknown'}"
+    )
     response.headers["X-Process-Time"] = str(process_time)
     return response
 
+# ─── Exception Handlers ─────────────────────────────────────────────────────────
 from fastapi.exceptions import RequestValidationError
 from app.exceptions import AppException, app_exception_handler, global_exception_handler
 
@@ -57,26 +86,9 @@ async def validation_exception_handler(request, exc: RequestValidationError):
         }
     )
 
-# Important: In Starlette/FastAPI, the last middleware added is the outermost layer.
-# CORSMiddleware must be the outermost layer so it intercepts OPTIONS requests before auth or audit logs.
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://localhost:5173",
-        "https://ratan-six.vercel.app",
-        "https://ratan-agya0j0n1-atharv-shindes-projects.vercel.app",
-        "https://ratan-uwno.onrender.com"
-    ],
-    allow_origin_regex="https://.*\.vercel\.app",
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-    expose_headers=["*"]
-)
-
-# Include all API routers
+# ─── Routers ────────────────────────────────────────────────────────────────────
 app.include_router(health.router, prefix="", tags=["health"])
+
 # Authentication Routers (Strictly Separated)
 app.include_router(personal_auth.router, prefix="/api/v1/personal/auth", tags=["personal-auth"])
 app.include_router(personal_google_auth.router, prefix="/api/v1/personal/auth", tags=["personal-google-auth"])
@@ -84,6 +96,7 @@ app.include_router(enterprise_auth.router, prefix="/api/v1/enterprise/auth", tag
 app.include_router(super_admin_auth.router, prefix="/api/v1/super-admin/auth", tags=["super-admin-auth"])
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["shared-auth"])
 
+# Enterprise Routers
 app.include_router(users.router, prefix="/api/v1/users", tags=["users"])
 app.include_router(organizations.router, prefix="/api/v1/organizations", tags=["organizations"])
 app.include_router(plants.router, prefix="/api/v1/plants", tags=["plants"])
@@ -103,6 +116,7 @@ app.include_router(admin_telemetry.router, prefix="/api/v1/admin/telemetry", tag
 app.include_router(personal_chat.router, prefix="/api/v1/personal/chat", tags=["personal-chat"])
 app.include_router(personal_files.router, prefix="/api/v1/personal/files", tags=["personal-files"])
 app.include_router(personal_memory.router, prefix="/api/v1/personal/memory", tags=["personal-memory"])
+
 
 @app.get("/")
 def read_root():

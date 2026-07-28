@@ -49,6 +49,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     refreshUser();
   }, [refreshUser]);
 
+  // ── Keepalive: prevent Render free-tier cold-starts ────────────────────────
+  // Render spins down after ~15 min of inactivity. The first request after
+  // spin-down takes 50+ seconds and returns a gateway error with no CORS headers.
+  // We ping /health every 4 minutes to keep the server warm.
+  useEffect(() => {
+    const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL?.replace("/api/v1", "") || "https://ratan-uwno.onrender.com";
+    const ping = () => fetch(`${BACKEND_URL}/health`, { method: "GET", mode: "no-cors" }).catch(() => {});
+    ping(); // immediate ping on mount
+    const interval = setInterval(ping, 4 * 60 * 1000); // every 4 minutes
+    return () => clearInterval(interval);
+  }, []);
+
   const loginPersonal = async (email: string, pass: string) => {
     const res = await authApi.login_personal(email, pass);
     setTokens(res.data.data.access_token, res.data.data.refresh_token);

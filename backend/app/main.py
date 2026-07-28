@@ -3,7 +3,7 @@ from fastapi import FastAPI, Request
 # pyrefly: ignore [missing-import]
 from fastapi.middleware.cors import CORSMiddleware
 # pyrefly: ignore [missing-import]
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 # pyrefly: ignore [missing-import]
 from dotenv import load_dotenv
 import logging
@@ -22,28 +22,50 @@ from app.api import (
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
+ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "https://ratan-six.vercel.app",
+    "https://ratan-agya0j0n1-atharv-shindes-projects.vercel.app",
+    "https://ratan-uwno.onrender.com",
+]
+
+CORS_HEADERS = {
+    "Access-Control-Allow-Origin": "https://ratan-six.vercel.app",
+    "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With",
+    "Access-Control-Allow-Credentials": "true",
+    "Access-Control-Max-Age": "86400",
+}
+
 app = FastAPI(
     title="RATAN API",
     description="Retrieval-Augmented Technology for Asset Networks",
     version="1.0.0"
 )
 
-# ─── IMPORTANT: Middleware Registration Order ────────────────────────────────
-# Starlette's add_middleware() INSERTS at position 0 of user_middleware list.
-# This means the LAST registered middleware is the OUTERMOST wrapper.
+# ─── Middleware Registration Order ────────────────────────────────────────────
+# Starlette add_middleware() INSERTS at position 0 each time.
+# LAST registered = position 0 = OUTERMOST = first to handle requests.
 #
-# Correct request flow we want:
-#   client → CORSMiddleware → audit_log → app
-#
-# To achieve this, audit_log MUST be registered FIRST (inner),
-# and CORSMiddleware MUST be registered LAST (outermost).
+# Order of registration (inner → outer):
+#   1. audit_log   (registered first → inner)
+#   2. CORS        (registered second → outermost, runs first on every request)
 # ─────────────────────────────────────────────────────────────────────────────
 
-# ─── Step 1: Audit Logging Middleware (INNER — registered first) ─────────────
+# Step 1: Inner middleware (registered first)
 @app.middleware("http")
 async def audit_log_middleware(request: Request, call_next):
     start_time = time.time()
-    response = await call_next(request)
+    try:
+        response = await call_next(request)
+    except Exception as exc:
+        # Ensure unhandled exceptions still produce a response (with CORS headers added by outer middleware)
+        logging.error(f"Unhandled exception in middleware: {exc}", exc_info=True)
+        response = JSONResponse(
+            status_code=500,
+            content={"success": False, "error": {"code": "INTERNAL_ERROR", "message": "Unexpected server error."}},
+        )
     process_time = (time.time() - start_time) * 1000
     logging.info(
         f"AUDIT | {request.method} {request.url.path} | "
@@ -53,18 +75,7 @@ async def audit_log_middleware(request: Request, call_next):
     response.headers["X-Process-Time"] = str(process_time)
     return response
 
-# ─── Step 2: CORS Middleware (OUTERMOST — registered last) ───────────────────
-# Because this is added after audit_log, it inserts at index 0, making it
-# the outermost layer that intercepts every request — including OPTIONS
-# preflight and all error responses — before anything else runs.
-ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://localhost:5173",
-    "https://ratan-six.vercel.app",
-    "https://ratan-agya0j0n1-atharv-shindes-projects.vercel.app",
-    "https://ratan-uwno.onrender.com",
-]
-
+# Step 2: CORSMiddleware — outermost (registered last)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
@@ -74,6 +85,24 @@ app.add_middleware(
     allow_headers=["*"],
     expose_headers=["*"],
 )
+
+# ─── Belt-and-suspenders: explicit OPTIONS handler ────────────────────────────
+# If Starlette's CORSMiddleware ever fails to handle a preflight for any reason,
+# this explicit route guarantees the browser always gets a 200 with CORS headers.
+@app.options("/{full_path:path}")
+async def global_options_handler(request: Request, full_path: str):
+    origin = request.headers.get("origin", "https://ratan-six.vercel.app")
+    allowed = origin if any(origin.endswith(d) for d in ["vercel.app", "onrender.com", "localhost:3000", "localhost:5173"]) else ALLOWED_ORIGINS[0]
+    return Response(
+        status_code=200,
+        headers={
+            "Access-Control-Allow-Origin": allowed,
+            "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With",
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Max-Age": "86400",
+        },
+    )
 
 # ─── Exception Handlers ─────────────────────────────────────────────────────────
 from fastapi.exceptions import RequestValidationError
@@ -99,7 +128,7 @@ async def validation_exception_handler(request, exc: RequestValidationError):
 # ─── Routers ────────────────────────────────────────────────────────────────────
 app.include_router(health.router, prefix="", tags=["health"])
 
-# Authentication Routers (Strictly Separated)
+# Authentication Routers
 app.include_router(personal_auth.router, prefix="/api/v1/personal/auth", tags=["personal-auth"])
 app.include_router(personal_google_auth.router, prefix="/api/v1/personal/auth", tags=["personal-google-auth"])
 app.include_router(enterprise_auth.router, prefix="/api/v1/enterprise/auth", tags=["enterprise-auth"])

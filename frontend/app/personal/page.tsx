@@ -39,8 +39,8 @@ function ChatContent() {
         try {
           setIsLoadingChat(true);
           const { data } = await personalChatApi.getSession(chatId);
-          // Assuming data.data returns an array of messages
-          const msgs = data.data.map((m: any) => ({
+          // Assuming data.data returns { session, messages }
+          const msgs = data.data.messages.map((m: any) => ({
             id: m.id,
             role: m.role,
             content: m.content,

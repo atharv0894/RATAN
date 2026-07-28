@@ -6,6 +6,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { personalFilesApi } from "@/lib/api";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 export default function PersonalChatPage() {
   const { user } = useAuth();
@@ -63,10 +64,12 @@ export default function PersonalChatPage() {
   return (
     <div className="flex flex-col h-full bg-bg text-text-primary selection:bg-primary/30 relative">
       
-      {/* Mobile Header (Empty for now, just preserves height and layout) */}
+      {/* Mobile Header */}
       <div className="h-14 border-b border-border-default flex items-center justify-between px-4 bg-surface/80 backdrop-blur-xl sticky top-0 z-10 md:hidden shadow-sm">
         <div className="w-8"></div>
-        <div></div>
+        <div className="flex justify-center">
+          <ThemeToggle />
+        </div>
         <div className="w-8"></div>
       </div>
 

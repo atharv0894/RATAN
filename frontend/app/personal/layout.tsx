@@ -4,6 +4,8 @@ import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { MessageSquare, Database, Settings, User as UserIcon, LogOut, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 
+import { ThemeToggle } from "@/components/ThemeToggle";
+
 export default function PersonalLayout({ children }: { children: React.ReactNode }) {
   const { user, isLoading, logout } = useAuth();
   const router = useRouter();
@@ -86,9 +88,12 @@ export default function PersonalLayout({ children }: { children: React.ReactNode
             </div>
             <h1 className="text-sm font-bold tracking-wide">RATAN <span className="text-[var(--text-secondary)] font-medium">Personal</span></h1>
           </div>
-          <button onClick={() => setSidebarOpen(false)} className="md:hidden p-1.5 rounded-lg text-[var(--text-secondary)] hover:bg-[var(--surface-2)] transition-colors">
-            <PanelLeftClose className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <button onClick={() => setSidebarOpen(false)} className="md:hidden p-1.5 rounded-lg text-[var(--text-secondary)] hover:bg-[var(--surface-2)] transition-colors">
+              <PanelLeftClose className="w-4 h-4" />
+            </button>
+          </div>
         </div>
         
         <div className="flex-1 overflow-y-auto px-3 py-4 space-y-6">

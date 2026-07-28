@@ -4,6 +4,7 @@ import { useAuth } from "@/lib/auth-context";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { Bot, Building2, Cpu, ArrowRight, ShieldCheck } from "lucide-react";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 export default function LandingPage() {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -33,6 +34,7 @@ export default function LandingPage() {
           <span className="font-bold tracking-tight text-lg">RATAN</span>
         </div>
         <div className="flex items-center gap-4 text-sm font-medium">
+          <ThemeToggle />
           <Link href="/personal/login" className="text-text-secondary hover:text-text-primary transition-colors">
             Personal Login
           </Link>

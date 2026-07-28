@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, Suspense } from "react";
 import { Send, Bot, Paperclip, Copy, RotateCcw, ThumbsUp, ThumbsDown, FileText, ChevronDown, Sparkles, Loader2, ArrowUp, Mic, Plus, X } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -7,8 +7,10 @@ import { personalFilesApi } from "@/lib/api";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { useSearchParams, useRouter } from "next/navigation";
+import { personalChatApi } from "@/lib/api";
 
-export default function PersonalChatPage() {
+function ChatContent() {
   const { user } = useAuth();
   const [messages, setMessages] = useState<Array<{role: "user"|"assistant", content: string, id: string}>>([]);
   const [input, setInput] = useState("");
@@ -37,6 +39,9 @@ export default function PersonalChatPage() {
     }
   };
 
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  
   const removeAttachedFile = () => setAttachedFile(null);
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -55,6 +60,28 @@ export default function PersonalChatPage() {
     const userMsgId = Date.now().toString();
     setMessages(prev => [...prev, { role: "user", content: userMessage, id: userMsgId }]);
     setIsTyping(true);
+    
+    try {
+      let currentSessionId = searchParams.get("chat_id");
+      
+      if (!currentSessionId) {
+         // Create a new session so it appears in the sidebar
+         const title = userMessage.length > 30 ? userMessage.substring(0, 30) + "..." : userMessage;
+         const res = await personalChatApi.createSession(title);
+         currentSessionId = res.data.data.id;
+         
+         // Update URL without refreshing the page
+         router.push(`/personal?chat_id=${currentSessionId}`);
+         
+         // Invalidate sidebar query
+         queryClient.invalidateQueries({ queryKey: ["personal_chat_sessions"] });
+      }
+
+      // Simulate streaming logic (since the real LLM endpoint for personal chat isn't hooked up yet)
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to create chat session");
+    }
     
     // Simulate streaming
     setTimeout(() => {
@@ -276,5 +303,17 @@ export default function PersonalChatPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function PersonalChatPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex h-full items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-text-secondary" />
+      </div>
+    }>
+      <ChatContent />
+    </Suspense>
   );
 }

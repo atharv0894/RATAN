@@ -28,11 +28,35 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# ─── CORS ──────────────────────────────────────────────────────────────────────
-# MUST be the first add_middleware call so it is the OUTERMOST layer.
-# In Starlette, add_middleware stacks in LIFO order, meaning the first call
-# registered here wraps everything else and is therefore always executed first
-# on every request — including OPTIONS preflight and error responses.
+# ─── IMPORTANT: Middleware Registration Order ────────────────────────────────
+# Starlette's add_middleware() INSERTS at position 0 of user_middleware list.
+# This means the LAST registered middleware is the OUTERMOST wrapper.
+#
+# Correct request flow we want:
+#   client → CORSMiddleware → audit_log → app
+#
+# To achieve this, audit_log MUST be registered FIRST (inner),
+# and CORSMiddleware MUST be registered LAST (outermost).
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ─── Step 1: Audit Logging Middleware (INNER — registered first) ─────────────
+@app.middleware("http")
+async def audit_log_middleware(request: Request, call_next):
+    start_time = time.time()
+    response = await call_next(request)
+    process_time = (time.time() - start_time) * 1000
+    logging.info(
+        f"AUDIT | {request.method} {request.url.path} | "
+        f"Status: {response.status_code} | Latency: {process_time:.2f}ms | "
+        f"IP: {request.client.host if request.client else 'unknown'}"
+    )
+    response.headers["X-Process-Time"] = str(process_time)
+    return response
+
+# ─── Step 2: CORS Middleware (OUTERMOST — registered last) ───────────────────
+# Because this is added after audit_log, it inserts at index 0, making it
+# the outermost layer that intercepts every request — including OPTIONS
+# preflight and all error responses — before anything else runs.
 ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:5173",
@@ -50,20 +74,6 @@ app.add_middleware(
     allow_headers=["*"],
     expose_headers=["*"],
 )
-
-# ─── Audit Logging Middleware ───────────────────────────────────────────────────
-@app.middleware("http")
-async def audit_log_middleware(request: Request, call_next):
-    start_time = time.time()
-    response = await call_next(request)
-    process_time = (time.time() - start_time) * 1000
-    logging.info(
-        f"AUDIT | {request.method} {request.url.path} | "
-        f"Status: {response.status_code} | Latency: {process_time:.2f}ms | "
-        f"IP: {request.client.host if request.client else 'unknown'}"
-    )
-    response.headers["X-Process-Time"] = str(process_time)
-    return response
 
 # ─── Exception Handlers ─────────────────────────────────────────────────────────
 from fastapi.exceptions import RequestValidationError

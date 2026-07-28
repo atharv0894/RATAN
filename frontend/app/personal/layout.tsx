@@ -5,6 +5,8 @@ import { useAuth } from "@/lib/auth-context";
 import { MessageSquare, Database, Settings, User as UserIcon, LogOut, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { useQuery } from "@tanstack/react-query";
+import { personalChatApi } from "@/lib/api";
 
 export default function PersonalLayout({ children }: { children: React.ReactNode }) {
   const { user, isLoading, logout } = useAuth();
@@ -12,6 +14,13 @@ export default function PersonalLayout({ children }: { children: React.ReactNode
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mounted, setMounted] = useState(false);
+
+  const { data: sessionsData, isLoading: sessionsLoading } = useQuery({
+    queryKey: ["personal_chat_sessions"],
+    queryFn: () => personalChatApi.listSessions(),
+    enabled: !!user && user.account_type === "PERSONAL",
+  });
+  const sessions = sessionsData?.data?.data?.sessions || [];
 
   // Auth routes that should NOT be blocked by this layout
   const isAuthRoute = pathname.startsWith('/personal/login') || 
@@ -141,23 +150,31 @@ export default function PersonalLayout({ children }: { children: React.ReactNode
           </div>
 
           <div>
-            <div className="px-3 pt-2 pb-2 text-[10px] font-semibold text-text-secondary uppercase tracking-wider flex justify-between items-center group cursor-pointer">
-              <span>Today</span>
+            <div className="px-3 pt-2 pb-2 text-[10px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider flex justify-between items-center group cursor-pointer">
+              <span>Recent</span>
             </div>
             <div className="space-y-0.5">
-              {[1, 2, 3].map((i) => (
-                <button key={i} className="w-full flex items-center justify-between px-3 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-surface-2 rounded-lg transition-colors text-left group">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <MessageSquare className="w-3.5 h-3.5 shrink-0 opacity-60 group-hover:opacity-100" />
-                    <span className="truncate">Conversation about Data {i}</span>
-                  </div>
-                  <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
-                    <div className="w-1 h-1 rounded-full bg-text-secondary"></div>
-                    <div className="w-1 h-1 rounded-full bg-text-secondary"></div>
-                    <div className="w-1 h-1 rounded-full bg-text-secondary"></div>
-                  </div>
-                </button>
-              ))}
+              {sessionsLoading ? (
+                <div className="px-3 py-2 text-sm text-[var(--text-secondary)]">Loading chats...</div>
+              ) : sessions && sessions.length > 0 ? (
+                sessions.map((session: any) => (
+                  <button 
+                    key={session.id} 
+                    onClick={() => {
+                      router.push(`/personal?chat_id=${session.id}`);
+                      if (window.innerWidth < 768) setSidebarOpen(false);
+                    }}
+                    className="w-full flex items-center justify-between px-3 py-2 text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-2)] rounded-lg transition-colors text-left group"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <MessageSquare className="w-3.5 h-3.5 shrink-0 opacity-60 group-hover:opacity-100" />
+                      <span className="truncate">{session.title || "New Chat"}</span>
+                    </div>
+                  </button>
+                ))
+              ) : (
+                <div className="px-3 py-2 text-sm text-[var(--text-secondary)]">No recent chats</div>
+              )}
             </div>
           </div>
           

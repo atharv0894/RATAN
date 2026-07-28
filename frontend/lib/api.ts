@@ -186,6 +186,7 @@ export const personalChatApi = {
     api.post("/personal/chat", { question, chat_history, document_id, session_id }),
   listSessions: () => api.get("/personal/chat/sessions"),
   getSession: (id: string) => api.get(`/personal/chat/sessions/${id}`),
+  deleteSession: (id: string) => api.delete(`/personal/chat/sessions/${id}`),
 };
 
 // Dashboard

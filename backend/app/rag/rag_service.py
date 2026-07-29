@@ -152,24 +152,8 @@ class RAGService:
                 content = response_content.strip()
             else:
                 content = str(response_content).strip()
-                
-            # Safely extract JSON
-            match = re.search(r'\{.*\}', content, re.DOTALL)
-            if match:
-                parsed = json.loads(match.group())
-            else:
-                # Fallback if LLM forgets JSON format
-                parsed = {
-                    "answer": content,
-                    "citations": [],
-                    "confidence_score": 0.5,
-                    "follow_up_questions": []
-                }
         except Exception:
-            parsed = {
-                "answer": "Failed to parse LLM response.",
-                "follow_up_questions": []
-            }
+            content = "Failed to parse LLM response."
             
         # 10. Observability
         total_latency = time.time() - t0
@@ -177,10 +161,138 @@ class RAGService:
         
         # Normalize output
         return {
-            "answer": parsed.get("answer", content if 'content' in locals() else ""),
+            "answer": content,
             "citations": citations,
             "confidence_score": confidence,
-            "follow_up_questions": parsed.get("follow_up_questions", [])[:3],
+            "follow_up_questions": [],
             "provider": generated_by,
             "intent": intent
         }
+
+    async def generate_answer_stream(self, query: str, chat_history: list = None, base_where: dict = None, trace_id: str = "unknown"):
+        import asyncio
+        from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+        
+        t0 = time.time()
+        
+        yield f'data: {json.dumps({"type": "status", "message": "Analyzing query..."})}\n\n'
+        
+        # 1. Query Preprocessing
+        clean_query = QueryAnalyzer.preprocess(query)
+        intent = QueryAnalyzer.detect_intent(clean_query)
+        filters = QueryAnalyzer.extract_filters(clean_query)
+        
+        is_personal = base_where and "namespace" in base_where
+        final_where = {} if is_personal else {"is_latest": 1}
+        if filters: final_where.update(filters)
+        if base_where: final_where.update(base_where)
+            
+        expanded_query = QueryAnalyzer.expand_query(clean_query)
+        
+        yield f'data: {json.dumps({"type": "status", "message": "Searching documents..."})}\n\n'
+        
+        # Retrieval with 15s timeout
+        t_retrieval = time.time()
+        max_retries = 3
+        retrieved_chunks = []
+        for attempt in range(max_retries):
+            try:
+                # Run the sync retrieval in a thread pool to avoid blocking the async event loop
+                retrieved_chunks = await asyncio.wait_for(
+                    asyncio.to_thread(
+                        self.retrieval_service.retrieve, expanded_query, top_k=10, fetch_k=30, lambda_mult=0.6, where=final_where
+                    ),
+                    timeout=15.0
+                )
+                break
+            except asyncio.TimeoutError:
+                logging.error(f"[Trace: {trace_id}] Retrieval timed out after 15s")
+                yield f'data: {json.dumps({"type": "error", "message": "Document search timed out."})}\n\n'
+                return
+            except Exception as e:
+                logging.error(f"[Trace: {trace_id}] Retrieval failed on attempt {attempt+1}: {e}", exc_info=True)
+                if attempt == max_retries - 1:
+                    yield f'data: {json.dumps({"type": "error", "message": "Failed to search documents."})}\n\n'
+                    return
+                await asyncio.sleep(2 ** attempt)
+            
+        retrieval_latency = time.time() - t_retrieval
+        
+        ranked_chunks = Reranker.rerank(clean_query, retrieved_chunks)
+        top_chunks = ranked_chunks[:5]
+        
+        if not top_chunks:
+            yield f'data: {json.dumps({"type": "chunk", "text": "I couldn\'t find sufficient evidence in your documents to answer this."})}\n\n'
+            yield f'data: {json.dumps({"type": "done", "citations": [], "confidence": 0.0, "provider": "None", "latency_ms": int((time.time()-t0)*1000)})}\n\n'
+            return
+            
+        distances = [c.get("distance", 1.0) for c in top_chunks]
+        avg_distance = sum(distances) / len(distances) if distances else 1.0
+        confidence = max(0.0, min(1.0, 1.0 - (avg_distance / 2.0)))
+        
+        citations = []
+        for i, chunk in enumerate(top_chunks, 1):
+            meta = chunk.get('metadata', {})
+            citations.append({
+                "evidence_id": i,
+                "document_id": meta.get('document_id', 'Unknown'),
+                "document_name": meta.get('filename', meta.get('source', 'Unknown')),
+                "version": meta.get('version_number', 1),
+                "page": meta.get('page', meta.get('page_no', 'N/A')),
+                "section": meta.get('heading', meta.get('section', 'N/A')),
+                "chunk_id": chunk.get('chunk_id', 'N/A'),
+                "similarity_score": 1.0 - chunk.get('distance', 1.0)
+            })
+            
+        context_str = ContextBuilder.build_context(top_chunks)
+        prompt = PromptBuilder.build_rag_prompt(clean_query, context_str, chat_history)
+        messages = [
+            SystemMessage(content=PromptBuilder.get_system_prompt()),
+            HumanMessage(content=prompt)
+        ]
+        
+        yield f'data: {json.dumps({"type": "status", "message": "Generating answer..."})}\n\n'
+        
+        t_llm = time.time()
+        generated_by = "Groq"
+        full_response = ""
+        
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                if not self.primary_client:
+                    raise ValueError("LLM client not initialized")
+                
+                gen = self.primary_client.astream(messages)
+                while True:
+                    try:
+                        chunk = await asyncio.wait_for(gen.__anext__(), timeout=60.0)
+                        content = chunk.content
+                        if content:
+                            full_response += content
+                            yield f'data: {json.dumps({"type": "chunk", "text": content})}\n\n'
+                    except StopAsyncIteration:
+                        break
+                        
+                # If we finish successfully without exception, break the retry loop
+                break
+            except asyncio.TimeoutError:
+                logging.error(f"[Trace: {trace_id}] LLM generation timed out after 60s")
+                yield f'data: {json.dumps({"type": "error", "message": "LLM generation timed out."})}\n\n'
+                return
+            except Exception as e:
+                logging.error(f"[Trace: {trace_id}] LLM generation failed on attempt {attempt+1}: {e}", exc_info=True)
+                if attempt == max_retries - 1:
+                    yield f'data: {json.dumps({"type": "error", "message": "Failed to generate answer after retries."})}\n\n'
+                    return
+                # Wait before retry
+                await asyncio.sleep(2 ** attempt)
+            
+        llm_latency = time.time() - t_llm
+        total_latency = time.time() - t0
+        
+        logging.info(f"[Trace: {trace_id}] Latency - Total: {total_latency:.2f}s | Retrieval: {retrieval_latency:.2f}s | LLM: {llm_latency:.2f}s | Provider: {generated_by}")
+        
+        # Send final citations and completion event
+        yield f'data: {json.dumps({"type": "done", "citations": citations, "confidence": confidence, "provider": generated_by, "latency_ms": int(total_latency*1000), "full_answer": full_response})}\n\n'
+

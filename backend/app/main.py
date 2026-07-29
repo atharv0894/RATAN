@@ -57,23 +57,35 @@ app = FastAPI(
 # Step 1: Inner middleware (registered first)
 @app.middleware("http")
 async def audit_log_middleware(request: Request, call_next):
+    import uuid
     start_time = time.time()
+    trace_id = request.headers.get("x-trace-id") or str(uuid.uuid4())
+    request.state.trace_id = trace_id
+    
     try:
         response = await call_next(request)
     except Exception as exc:
-        # Ensure unhandled exceptions still produce a response (with CORS headers added by outer middleware)
-        logging.error(f"Unhandled exception in middleware: {exc}", exc_info=True)
+        logging.error(f"[Trace: {trace_id}] Unhandled exception in middleware: {exc}", exc_info=True)
         response = JSONResponse(
             status_code=500,
-            content={"success": False, "error": {"code": "INTERNAL_ERROR", "message": f"Unexpected server error: {str(exc)}"}},
+            content={
+                "success": False,
+                "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "Unexpected server error.",
+                    "retryable": True,
+                    "trace_id": trace_id
+                }
+            },
         )
     process_time = (time.time() - start_time) * 1000
     logging.info(
-        f"AUDIT | {request.method} {request.url.path} | "
+        f"[Trace: {trace_id}] {request.method} {request.url.path} | "
         f"Status: {response.status_code} | Latency: {process_time:.2f}ms | "
         f"IP: {request.client.host if request.client else 'unknown'}"
     )
     response.headers["X-Process-Time"] = str(process_time)
+    response.headers["X-Trace-Id"] = trace_id
     return response
 
 # Step 2: CORSMiddleware — outermost (registered last)

@@ -5,7 +5,7 @@ const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://ratan-uwno.onrender
 
 export const api = axios.create({
   baseURL: `${BASE_URL}/api/v1`,
-  timeout: 60000,
+  timeout: 120000,
   headers: { "Content-Type": "application/json" },
 });
 
@@ -188,6 +188,47 @@ export const personalChatApi = {
   createSession: (title: string, llm_model: string = "gpt-4o") => api.post("/personal/chat", { title, llm_model }),
   send: (question: string, chat_history?: { role: string; content: string }[], document_id?: string, session_id?: string) =>
     api.post("/personal/chat/message", { question, chat_history, document_id, session_id }),
+  sendStream: async function* (question: string, chat_history?: { role: string; content: string }[], document_id?: string, session_id?: string) {
+    const token = getAccessToken();
+    const response = await fetch(`${BASE_URL}/api/v1/personal/chat/message`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ question, chat_history, document_id, session_id }),
+    });
+
+    if (!response.ok) {
+      const errBody = await response.json().catch(() => ({}));
+      throw new Error(errBody.error?.message || `HTTP error! status: ${response.status}`);
+    }
+
+    if (!response.body) throw new Error("No response body stream");
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const parts = buffer.split('\n\n');
+      buffer = parts.pop() || "";
+      
+      for (const part of parts) {
+        if (part.startsWith('data: ')) {
+          try {
+            const data = JSON.parse(part.slice(6));
+            yield data;
+          } catch (e) {
+            // Ignore partial parse
+          }
+        }
+      }
+    }
+  },
   listSessions: () => api.get("/personal/chat"),
   getSession: (id: string) => api.get(`/personal/chat/${id}`),
   deleteSession: (id: string) => api.delete(`/personal/chat/${id}`),

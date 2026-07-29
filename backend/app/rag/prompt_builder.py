@@ -20,16 +20,7 @@ Confidence is calculated server-side. Do not include confidence in your response
 CITATIONS:
 When answering, use inline citations using the Evidence ID provided in the context, like [1] or [2].
 
-You must output your response in valid JSON format ONLY. Do not wrap in markdown blocks.
-The JSON must strictly match this schema:
-{
-    "answer": "Your strictly grounded text answer with inline citations [1].",
-    "follow_up_questions": [
-        "Question 1 based on context?",
-        "Question 2 based on context?",
-        "Question 3 based on context?"
-    ]
-}
+You must output your response in clear, well-formatted markdown. Do not wrap your response in JSON or any other structured format. Just provide the direct answer.
 """
 
     @staticmethod
@@ -44,7 +35,5 @@ The JSON must strictly match this schema:
 {context_str}
 
 User Question:
-{query}
-
-Respond in the required JSON format:"""
+{query}"""
         return prompt

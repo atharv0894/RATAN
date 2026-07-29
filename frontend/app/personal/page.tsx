@@ -36,6 +36,7 @@ function ChatContent() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [aiStatus, setAiStatus] = useState<string | null>(null);
   const [isLoadingChat, setIsLoadingChat] = useState(false);
   const [attachedFile, setAttachedFile] = useState<{ name: string; id: string } | null>(null);
 
@@ -195,42 +196,71 @@ function ChatContent() {
         : userMessage;
 
       // Build chat history from current messages (exclude the optimistic one)
-      const history = messages.map((m) => ({ role: m.role, content: m.content }));
+      const chatHistory = messages.map((m) => ({ role: m.role, content: m.content }));
 
-      const { data } = await personalChatApi.send(
+      let aiMessageAdded = false;
+      const aiId = `ai-${Date.now()}`;
+      setAiStatus("Connecting to backend...");
+
+      for await (const chunk of personalChatApi.sendStream(
         question,
-        history,
+        chatHistory,
         undefined,
         currentSessionId ?? undefined
-      );
-      const resp = data.data;
+      )) {
+        if (chunk.type === "status") {
+          setAiStatus(chunk.message);
+        } else if (chunk.type === "chunk") {
+          if (!aiMessageAdded) {
+            aiMessageAdded = true;
+            setMessages((prev) => [
+              ...prev,
+              { id: aiId, role: "assistant", content: chunk.text },
+            ]);
+            setAiStatus(null);
+          } else {
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === aiId ? { ...m, content: m.content + chunk.text } : m
+              )
+            );
+          }
+        } else if (chunk.type === "done") {
+          if (!aiMessageAdded) {
+            setMessages((prev) => [
+              ...prev,
+              { id: aiId, role: "assistant", content: chunk.full_answer || "" },
+            ]);
+          }
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === aiId
+                ? {
+                    ...m,
+                    content: chunk.full_answer || m.content,
+                    citations: chunk.citations,
+                    confidence: chunk.confidence,
+                    provider: chunk.provider,
+                    timestamp: Date.now() / 1000,
+                  }
+                : m
+            )
+          );
+          setAiStatus(null);
+        } else if (chunk.type === "error") {
+          throw new Error(chunk.message);
+        }
+      }
 
-      // Clear the file chip after successful send
       setAttachedFile(null);
-
       setIsTyping(false);
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `ai-${Date.now()}`,
-          role: "assistant",
-          content: resp.answer,
-          citations: resp.citations,
-          confidence: resp.confidence_score,
-          follow_up_questions: resp.follow_up_questions,
-          provider: resp.provider,
-          timestamp: Date.now() / 1000,
-        },
-      ]);
-
-      // Refresh sidebar title in case backend updated it
       queryClient.invalidateQueries({ queryKey: ["personal_chat_sessions"] });
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      toast.error("Failed to get response from AI");
+      toast.error(err.message || "Failed to get response from AI");
       setIsTyping(false);
-      // Remove the optimistic user message on failure
-      setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
+      setAiStatus(null);
+      // We do not remove the optimistic user message. The user might want to retry.
     }
   };
 
@@ -393,15 +423,14 @@ function ChatContent() {
           ))}
 
           {/* AI Thinking Indicator */}
-          {isTyping && (
+          {isTyping && aiStatus && (
             <div className="flex gap-4 animate-fade-in">
               <div className="w-8 h-8 rounded-lg bg-surface border border-border-default flex items-center justify-center shrink-0 shadow-sm">
                 <Bot className="w-4 h-4 text-foreground" />
               </div>
-              <div className="px-5 py-4 bg-transparent flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 bg-text-secondary rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                <span className="w-1.5 h-1.5 bg-text-secondary rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                <span className="w-1.5 h-1.5 bg-text-secondary rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+              <div className="px-5 py-4 bg-transparent flex items-center gap-3">
+                <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                <span className="text-sm text-text-secondary font-medium">{aiStatus}</span>
               </div>
             </div>
           )}

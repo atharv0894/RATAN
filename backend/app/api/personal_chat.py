@@ -64,34 +64,34 @@ def create_personal_chat(payload: ChatSessionCreate, current_user: dict = Depend
     return APISuccessResponse(data={"id": session_id, "title": payload.title})
 
 
-@router.post("/message", response_model=APISuccessResponse)
-def send_personal_message(request: ChatRequest, current_user: dict = Depends(RequirePersonalUser)):
-    """Send a message to the personal RAG pipeline and save the result."""
+from fastapi import Request
+from fastapi.responses import StreamingResponse
+
+@router.post("/message")
+async def send_personal_message(fastapi_req: Request, request: ChatRequest, current_user: dict = Depends(RequirePersonalUser)):
+    """Stream a message from the personal RAG pipeline and save the result."""
     from app.services.dependencies import get_rag_service
     from app.exceptions import ValidationError
+    import logging
 
     if not request.question or not request.question.strip():
         raise ValidationError("Please provide a valid question.")
 
     history = [msg.dict() for msg in request.chat_history] if request.chat_history else None
-    rag_service = get_rag_service()
-
-    # Isolate retrieval to the user's personal namespace only
+    
     session_id = request.session_id
     if not session_id:
         session_id = str(uuid.uuid4())
 
     base_where = {"namespace": f"personal/{current_user['id']}"}
-
-    # Parse [Attached Document: filename] prefix from frontend
     search_query = request.question
+    
     match = re.search(r'^\[Attached Document:\s*(.*?)\]\s*(.*)$', request.question, re.DOTALL)
     if match:
         attached_filename = match.group(1).strip()
         search_query = match.group(2).strip()
         base_where["filename"] = attached_filename
         
-        # Associate this file with the newly created chat session so it doesn't clutter 'My Knowledge'
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute(
@@ -101,52 +101,71 @@ def send_personal_message(request: ChatRequest, current_user: dict = Depends(Req
         conn.commit()
         conn.close()
 
-    result = rag_service.generate_answer(
-        query=search_query,
-        chat_history=history,
-        base_where=base_where,
-    )
-
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    current_time = time.time()
-
-    if not request.session_id:
-        # We auto-created the session at the top, now persist it
-        title = request.question[:50] + "..." if len(request.question) > 50 else request.question
+    async def event_generator():
+        import asyncio
+        rag_service = get_rag_service()
+        trace_id = getattr(fastapi_req.state, "trace_id", "unknown")
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        current_time = time.time()
+        
+        if not request.session_id:
+            title = request.question[:50] + "..." if len(request.question) > 50 else request.question
+            cursor.execute(
+                "INSERT INTO personal_chats (id, user_id, title, llm_model, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+                (session_id, current_user["id"], title, "gpt-4o", current_time, current_time),
+            )
+        else:
+            cursor.execute(
+                "UPDATE personal_chats SET updated_at = ? WHERE id = ? AND user_id = ?",
+                (current_time, session_id, current_user["id"]),
+            )
+            
         cursor.execute(
-            "INSERT INTO personal_chats (id, user_id, title, llm_model, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
-            (session_id, current_user["id"], title, result.get("provider", "gpt-4o"), current_time, current_time),
+            "INSERT INTO personal_messages (id, session_id, role, content, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+            (str(uuid.uuid4()), session_id, "user", request.question, current_time, current_time),
         )
-    else:
-        # Update the timestamp so the chat floats to the top of the sidebar
-        cursor.execute(
-            "UPDATE personal_chats SET updated_at = ? WHERE id = ? AND user_id = ?",
-            (current_time, session_id, current_user["id"]),
-        )
+        conn.commit()
+        conn.close()
 
-    # Persist user message
-    cursor.execute(
-        "INSERT INTO personal_messages (id, session_id, role, content, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
-        (str(uuid.uuid4()), session_id, "user", request.question, current_time, current_time),
-    )
+        full_answer = ""
+        citations = []
+        
+        try:
+            async for chunk_str in rag_service.generate_answer_stream(search_query, history, base_where, trace_id):
+                yield chunk_str
+                
+                if chunk_str.startswith("data: "):
+                    try:
+                        data_json = json.loads(chunk_str[6:].strip())
+                        if data_json.get("type") == "chunk":
+                            full_answer += data_json.get("text", "")
+                        elif data_json.get("type") == "done":
+                            full_answer = data_json.get("full_answer", full_answer)
+                            citations = data_json.get("citations", [])
+                    except json.JSONDecodeError:
+                        pass
+        
+        except asyncio.CancelledError:
+            logging.warning(f"[Trace: {trace_id}] Client disconnected during SSE stream. Persisting partial response.")
+        except Exception as e:
+            logging.error(f"[Trace: {trace_id}] Stream generator failed: {e}", exc_info=True)
+            yield f'data: {json.dumps({"type": "error", "message": "An internal error interrupted the stream."})}\n\n'
+            full_answer += "\n\n(Sorry, an internal error interrupted the stream.)"
+            
+        if full_answer:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            ai_time = time.time()
+            cursor.execute(
+                "INSERT INTO personal_messages (id, session_id, role, content, citations, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (str(uuid.uuid4()), session_id, "assistant", full_answer, json.dumps(citations), ai_time, ai_time)
+            )
+            conn.commit()
+            conn.close()
 
-    # Persist assistant message with citations
-    cursor.execute(
-        "INSERT INTO personal_messages (id, session_id, role, content, citations, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-        (
-            str(uuid.uuid4()), session_id, "assistant", result["answer"],
-            json.dumps(result.get("citations", [])),
-            current_time + 0.001,  # tiny offset ensures correct chronological order
-            current_time + 0.001,
-        ),
-    )
-
-    conn.commit()
-    conn.close()
-
-    result["session_id"] = session_id
-    return APISuccessResponse(data=result)
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 
 # ─── Session-specific routes (must come AFTER fixed-path routes) ──────────────

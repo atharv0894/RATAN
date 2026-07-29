@@ -35,6 +35,8 @@ class DuplicateDocumentError(DuplicateResourceError):
         super().__init__("Document", document_id or message)
 
 async def app_exception_handler(request: Request, exc: AppException):
+    trace_id = getattr(request.state, "trace_id", "unknown")
+    retryable = exc.status_code in [408, 429, 500, 502, 503, 504]
     return JSONResponse(
         status_code=exc.status_code,
         content={
@@ -42,22 +44,25 @@ async def app_exception_handler(request: Request, exc: AppException):
             "error": {
                 "code": exc.code,
                 "message": exc.message,
-                "details": exc.details
+                "retryable": retryable,
+                "trace_id": trace_id
             }
         }
     )
 
 async def global_exception_handler(request: Request, exc: Exception):
     import logging
-    logging.error(f"Unhandled server error: {exc}", exc_info=True)
+    trace_id = getattr(request.state, "trace_id", "unknown")
+    logging.error(f"[Trace: {trace_id}] Unhandled server error: {exc}", exc_info=True)
     return JSONResponse(
         status_code=500,
         content={
             "success": False,
             "error": {
                 "code": "INTERNAL_SERVER_ERROR",
-                "message": "An unexpected error occurred.",
-                "details": {}
+                "message": str(exc),
+                "retryable": True,
+                "trace_id": trace_id
             }
         }
     )

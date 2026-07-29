@@ -195,3 +195,8 @@ async def startup_event():
 @app.get("/")
 def read_root():
     return {"message": "Welcome to RATAN API"}
+
+@app.get("/health")
+def read_health():
+    """Fallback health endpoint for frontend keep-alive pings."""
+    return {"status": "alive"}

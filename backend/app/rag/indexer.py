@@ -78,10 +78,10 @@ class Indexer:
             metadatas = [{} for _ in chunks]
 
         emb_batch_size = int(os.environ.get("EMBEDDING_BATCH_SIZE", 64))
-        qdrant_batch_size = int(os.environ.get("QDRANT_BATCH_SIZE", 128))
+        # Use a single batch size to fuse embedding and uploading, saving RAM
+        batch_size = min(emb_batch_size, int(os.environ.get("QDRANT_BATCH_SIZE", 128)))
         
-        total_emb_batches = (len(chunks) + emb_batch_size - 1) // emb_batch_size
-        total_upload_batches = (len(chunks) + qdrant_batch_size - 1) // qdrant_batch_size
+        total_batches = (len(chunks) + batch_size - 1) // batch_size
         
         if document_id:
             logging.info(f"Document ID: {document_id}")
@@ -91,33 +91,21 @@ class Indexer:
         
         start_time = time.time()
         
-        all_embeddings = []
-        
-        # 1. Generate Embeddings
-        for i in range(total_emb_batches):
-            logging.info(f"Embedding batch {i+1}/{total_emb_batches}...")
-            start_idx = i * emb_batch_size
-            end_idx = min(start_idx + emb_batch_size, len(chunks))
-            
-            batch_chunks = chunks[start_idx:end_idx]
-            batch_embeddings = self.embedding_service.generate_embeddings(batch_chunks)
-            all_embeddings.extend(batch_embeddings)
-            
-        logging.info("Memory-efficient processing completed for embeddings.")
-            
-        for i in range(total_upload_batches):
+        # 1 & 2. Fused Embedding and Upload Loop (Memory Efficient)
+        for i in range(total_batches):
             batch_num = i + 1
-            logging.info(f"Uploading batch {batch_num}/{total_upload_batches}...")
-            
-            start_idx = i * qdrant_batch_size
-            end_idx = min(start_idx + qdrant_batch_size, len(chunks))
+            logging.info(f"Processing batch {batch_num}/{total_batches}...")
+            start_idx = i * batch_size
+            end_idx = min(start_idx + batch_size, len(chunks))
             
             batch_chunks = chunks[start_idx:end_idx]
             batch_ids = chunk_ids[start_idx:end_idx]
             batch_metas = metadatas[start_idx:end_idx]
-            batch_embeddings = all_embeddings[start_idx:end_idx]
             
-            # Upsert with retry logic
+            # Generate embeddings
+            batch_embeddings = self.embedding_service.generate_embeddings(batch_chunks)
+            
+            # Upsert with retry logic immediately to free memory
             self._upsert_with_retry(batch_ids, batch_embeddings, batch_chunks, batch_metas, batch_num)
             
         elapsed = round(time.time() - start_time, 1)

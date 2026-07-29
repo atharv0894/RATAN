@@ -41,13 +41,21 @@ All API routes are prefixed with `/api/v1` and generally follow RESTful conventi
   "session_id": "uuid"
 }
 ```
-- **Response**: RAG AI Response with `answer`, `citations`, and `follow_up_questions`.
+- **Response**: `text/event-stream` (Server-Sent Events). Returns JSON chunks of `{ "type": "chunk", "text": "..." }` followed by `{ "type": "done", "full_answer": "...", "citations": [...] }`.
 
 ## Enterprise AI (`/chat`)
 
 ### `POST /api/v1/chat`
-- **Body**: Same as Personal chat, but requires an Organization account.
-- **Response**: RAG AI Response.
+- **Body**: `{ "title": "New Chat Session" }`
+- **Response**: Chat Session ID.
+
+### `POST /api/v1/chat/message`
+- **Body**: Same as Personal chat `message`, but uses Enterprise Context.
+- **Response**: `text/event-stream` (Server-Sent Events). Returns progressive token chunks for real-time UI typing indicators.
+
+### `POST /api/v1/chat/search`
+- **Body**: Same as above.
+- **Response**: Synchronous JSON `RAGResponse`. Used by the Global Semantic Search UI when streaming is not desired.
 
 ## Documents (`/documents`)
 

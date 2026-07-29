@@ -13,6 +13,8 @@ os.environ["B2_BUCKET_NAME"] = "test-bucket"
 os.environ["QDRANT_URL"] = "http://localhost:6333"
 os.environ["JWT_SECRET_KEY"] = "test_secret_key"
 os.environ["JWT_ALGORITHM"] = "HS256"
+if "TIDB_HOST" in os.environ:
+    del os.environ["TIDB_HOST"]
 
 from app.main import app
 from app.database.sqlite import init_db, get_db_connection
@@ -199,6 +201,12 @@ def test_soft_delete_and_restore(mock_storage, mock_vector_store, mock_indexer, 
     os.remove(path)
 
 def test_concurrent_delete_fails(auth_headers):
+    import jwt
+    token = auth_headers["Authorization"].split(" ")[1]
+    decoded = jwt.decode(token, options={"verify_signature": False})
+    org_id = decoded.get("org_id")
+    user_id = decoded.get("sub")
+    
     # If a document is in PROCESSING, delete should fail
     doc_id = str(uuid.uuid4())
     conn = get_db_connection()
@@ -206,7 +214,7 @@ def test_concurrent_delete_fails(auth_headers):
     now = time.time()
     
     cursor.execute('''INSERT INTO documents (id, title, filename, owner, organization, plant, department, created_at, updated_at, status)
-                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', (doc_id, "proc.pdf", "proc.pdf", "user1", "org1", "plant1", "dept1", now, now, 'PROCESSING'))
+                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', (doc_id, "proc.pdf", "proc.pdf", user_id, org_id, "plant1", "dept1", now, now, 'PROCESSING'))
     conn.commit()
     conn.close()
     

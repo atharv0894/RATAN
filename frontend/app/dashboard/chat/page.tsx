@@ -83,7 +83,6 @@ export default function ChatPage() {
   const sendMessage = async (text: string) => {
     if (!text.trim() && !attachedFile) return;
 
-    setIsLoading(true);
     let currentInput = text;
     
     if (attachedFile) {
@@ -106,25 +105,57 @@ export default function ChatPage() {
       inputRef.current.style.height = 'auto';
     }
 
+    setIsLoading(true);
+    let aiMessageAdded = false;
+    const aiId = getMsgId();
+
     try {
-      const { data } = await chatApi.send(currentInput, history as ChatMessage[], undefined, sessionId || undefined);
-      const resp: RAGResponse = data.data;
-      if (resp.session_id) {
-        setSessionId(resp.session_id);
+      for await (const chunk of chatApi.sendStream(currentInput, history as ChatMessage[], undefined, sessionId || undefined)) {
+        if (chunk.type === "chunk") {
+          setIsLoading(false);
+          if (!aiMessageAdded) {
+            aiMessageAdded = true;
+            setMessages((prev) => [
+              ...prev,
+              { id: aiId, role: "assistant", content: chunk.text, timestamp: Date.now() },
+            ]);
+          } else {
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === aiId ? { ...m, content: m.content + chunk.text } : m
+              )
+            );
+          }
+        } else if (chunk.type === "done") {
+          setIsLoading(false);
+          if (!aiMessageAdded) {
+            setMessages((prev) => [
+              ...prev,
+              { id: aiId, role: "assistant", content: chunk.full_answer || "", timestamp: Date.now() },
+            ]);
+          }
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === aiId
+                ? {
+                    ...m,
+                    content: chunk.full_answer || m.content,
+                    citations: chunk.citations,
+                    confidence: chunk.confidence,
+                    provider: chunk.provider,
+                  }
+                : m
+            )
+          );
+          if (chunk.session_id && !sessionId) {
+            setSessionId(chunk.session_id);
+          }
+          fetchSessions();
+        } else if (chunk.type === "error") {
+          toast.error(chunk.message || "An error occurred during streaming.");
+        }
       }
-      const assistantMsg: Message = {
-        id: getMsgId(),
-        role: "assistant",
-        content: resp.answer,
-        citations: resp.citations,
-        confidence: resp.confidence_score,
-        follow_up_questions: resp.follow_up_questions,
-        provider: resp.provider,
-        timestamp: new Date().getTime() / 1000,
-      };
-      setMessages((prev) => [...prev, assistantMsg]);
-      fetchSessions(); 
-    } catch {
+    } catch (e) {
       toast.error("Failed to get a response. Please try again.");
     } finally {
       setIsLoading(false);

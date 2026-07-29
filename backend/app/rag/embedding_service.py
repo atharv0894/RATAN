@@ -1,30 +1,33 @@
 import logging
 from fastembed import TextEmbedding
 
-# Initialize globally to prevent memory spikes on every API call
-try:
-    # Reverting to the 133MB English model to fit within 512MB RAM limit
-    _embedding_model = TextEmbedding(model_name="BAAI/bge-small-en-v1.5")
-    logging.info("Initialized fastembed model: BAAI/bge-small-en-v1.5")
-except Exception as e:
-    logging.error(f"Failed to initialize fastembed model: {e}")
-    _embedding_model = None
+_embedding_model = None
 
 class EmbeddingService:
     def __init__(self, model_name="BAAI/bge-small-en-v1.5", device=None, batch_size=8):
         self.model_name = model_name
         self.batch_size = batch_size
         
+    def _get_model(self):
+        global _embedding_model
+        if _embedding_model is None:
+            try:
+                logging.info(f"Lazily initializing fastembed model: {self.model_name}...")
+                _embedding_model = TextEmbedding(model_name=self.model_name)
+                logging.info("Model initialized successfully.")
+            except Exception as e:
+                logging.error(f"Failed to initialize fastembed model: {e}")
+                raise e
+        return _embedding_model
+
     def generate_embeddings(self, texts: list):
         if not texts:
             return []
             
-        if not _embedding_model:
-            logging.error("Embedding model is not initialized.")
-            return []
+        model = self._get_model()
             
         # fastembed's .embed() returns a generator of numpy arrays
-        embeddings_generator = _embedding_model.embed(texts, batch_size=self.batch_size)
+        embeddings_generator = model.embed(texts, batch_size=self.batch_size)
         
         # Convert to standard list of floats
         return [embedding.tolist() for embedding in embeddings_generator]

@@ -37,13 +37,28 @@ async def upload_personal_file(
 ):
     file_id = str(uuid.uuid4())
     now = time.time()
+    # Security: Validate file extension
+    allowed_exts = (".pdf", ".docx", ".txt", ".md", ".csv")
+    if not file.filename.lower().endswith(allowed_exts):
+        from app.exceptions import ValidationError
+        raise ValidationError(f"Unsupported file format. Allowed: {allowed_exts}")
+        
+    # Security: Check file size (max 50MB) to prevent disk exhaustion DoS
+    file.file.seek(0, 2)
+    size = file.file.tell()
+    file.file.seek(0)
+    if size > 50 * 1024 * 1024:
+        from app.exceptions import ValidationError
+        raise ValidationError("File too large (max 50MB)")
     
-    # Save temporarily to disk for parser
-    temp_path = f"/tmp/{file_id}_{file.filename}"
+    # Security: Prevent Path Traversal (CWE-22)
+    safe_filename = os.path.basename(file.filename)
+    temp_path = f"/tmp/{file_id}_{safe_filename}"
+    
+    import shutil
     with open(temp_path, "wb") as buffer:
-        content = await file.read()
-        buffer.write(content)
-        file_size = len(content)
+        shutil.copyfileobj(file.file, buffer)
+    file_size = os.path.getsize(temp_path)
     
     # Store in TiDB
     conn = get_db_connection()

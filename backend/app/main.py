@@ -10,8 +10,14 @@ import logging
 import time
 
 # Load environment variables FIRST before importing any internal modules
+from dotenv import load_dotenv
 load_dotenv()
 
+from app.core.logger import setup_logger, trace_id_var
+setup_logger()
+
+# Validate configuration on startup (Fail fast if missing keys)
+from app.core.config import settings
 
 from app.api import (
     health, documents, chat, stats, entities, cleanup, auth,
@@ -20,8 +26,6 @@ from app.api import (
     settings, admin_telemetry, personal_chat, personal_files,
     personal_memory, personal_google_auth
 )
-
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
 ALLOWED_ORIGINS = [
     "http://localhost:3000",
@@ -61,6 +65,9 @@ async def audit_log_middleware(request: Request, call_next):
     start_time = time.time()
     trace_id = request.headers.get("x-trace-id") or str(uuid.uuid4())
     request.state.trace_id = trace_id
+    
+    # Set the trace_id in the contextvar for JSON logging
+    trace_id_var.set(trace_id)
     
     try:
         response = await call_next(request)

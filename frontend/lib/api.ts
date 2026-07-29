@@ -174,8 +174,51 @@ export const documentsApi = {
 
 // Chat
 export const chatApi = {
+  createSession: (title: string, llm_model: string = "gpt-4o") => api.post("/chat", { title, llm_model }),
+  search: (question: string) => api.post("/chat/search", { question }),
   send: (question: string, chat_history?: { role: string; content: string }[], document_id?: string, session_id?: string) =>
-    api.post("/chat", { question, chat_history, document_id, session_id }),
+    api.post("/chat/message", { question, chat_history, document_id, session_id }),
+  sendStream: async function* (question: string, chat_history?: { role: string; content: string }[], document_id?: string, session_id?: string) {
+    const token = getAccessToken();
+    const response = await fetch(`${BASE_URL}/api/v1/chat/message`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ question, chat_history, document_id, session_id }),
+    });
+
+    if (!response.ok) {
+      const errBody = await response.json().catch(() => ({}));
+      throw new Error(errBody.error?.message || `HTTP error! status: ${response.status}`);
+    }
+
+    if (!response.body) throw new Error("No response body stream");
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const parts = buffer.split('\n\n');
+      buffer = parts.pop() || "";
+      
+      for (const part of parts) {
+        if (part.startsWith('data: ')) {
+          try {
+            const data = JSON.parse(part.slice(6));
+            yield data;
+          } catch (e) {
+            // Ignore partial parse
+          }
+        }
+      }
+    }
+  },
   listSessions: () => api.get("/chat/sessions"),
   getSession: (id: string) => api.get(`/chat/sessions/${id}`),
   deleteSession: (id: string) => api.delete(`/chat/sessions/${id}`),

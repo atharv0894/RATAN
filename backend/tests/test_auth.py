@@ -20,11 +20,13 @@ def setup_database():
     os.remove(TEST_DB.name)
 
 def test_register_organization():
+    import uuid
+    suffix = str(uuid.uuid4())[:8]
     response = client.post(
-        "/api/v1/auth/register",
+        "/api/v1/enterprise/auth/register",
         json={
-            "org_name": "Test Org",
-            "admin_email": "admin@testorg.com",
+            "org_name": f"Test Org {suffix}",
+            "admin_email": f"admin_{suffix}@testorg.com",
             "admin_password": "SecurePassword123!",
             "admin_name": "Admin User"
         }
@@ -34,7 +36,7 @@ def test_register_organization():
 
 def test_login():
     response = client.post(
-        "/api/v1/auth/login",
+        "/api/v1/enterprise/auth/login",
         data={
             "username": "admin@testorg.com",
             "password": "SecurePassword123!"
@@ -47,7 +49,7 @@ def test_login():
 def test_get_me():
     # 1. Login
     login_response = client.post(
-        "/api/v1/auth/login",
+        "/api/v1/enterprise/auth/login",
         data={
             "username": "admin@testorg.com",
             "password": "SecurePassword123!"

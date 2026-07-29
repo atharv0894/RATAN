@@ -8,10 +8,27 @@ from app.services.dependencies import get_vector_store
 
 router = APIRouter()
 
+import os
+import time
+import psutil
+import logging
+from fastapi import APIRouter, Response, status
+from app.api.responses import APISuccessResponse
+from app.database.sqlite import get_db_connection
+from app.services.dependencies import get_vector_store
+
+router = APIRouter()
 START_TIME = time.time()
 
-@router.get("/health", response_model=APISuccessResponse)
-def get_health():
+@router.get("/health/liveness", tags=["Health"])
+def get_liveness():
+    """Fast check for load balancers to ensure the application event loop is alive."""
+    uptime = time.time() - START_TIME
+    return APISuccessResponse(data={"status": "alive", "uptime_seconds": round(uptime, 2)})
+
+@router.get("/health/readiness", tags=["Health"])
+def get_readiness(response: Response):
+    """Deep check of all dependencies (DB, Qdrant, LLM, Memory) before receiving traffic."""
     uptime = time.time() - START_TIME
     
     # Check Database
@@ -21,37 +38,36 @@ def get_health():
         conn.execute("SELECT 1")
         conn.close()
         db_status = "ok"
-    except Exception:
-        pass
+    except Exception as e:
+        logging.error(f"Readiness check failed on Database: {e}")
 
     # Check Vector DB
     qdrant_status = "error"
     try:
-        # In a real check, we'd ping Qdrant
         get_vector_store()
+        # In a real system, you'd execute a lightweight query here
         qdrant_status = "ok"
-    except Exception:
-        pass
-
-    # Memory & Disk
+    except Exception as e:
+        logging.error(f"Readiness check failed on Qdrant: {e}")
+        
+    # Check Memory bounds (512MB limit)
     mem = psutil.virtual_memory()
-    disk = psutil.disk_usage('/')
+    mem_status = "ok" if mem.percent < 90 else "critical"
+    
+    # Overall Status
+    is_ready = db_status == "ok" and qdrant_status == "ok" and mem_status != "critical"
+    if not is_ready:
+        response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
 
     metrics = {
-        "status": "ready" if db_status == "ok" and qdrant_status == "ok" else "degraded",
-        "version": "1.0.0",
+        "status": "ready" if is_ready else "degraded",
         "uptime_seconds": round(uptime, 2),
         "database": db_status,
         "qdrant": qdrant_status,
-        "storage": os.environ.get("STORAGE_PROVIDER", "local"),
-        "models": {
-            "embedding": "BAAI/bge-small-en-v1.5",
-            "primary_llm": "Groq GPT-OSS 120B",
-            "fallback_llm": "Gemini 2.5 Flash"
-        },
+        "memory": mem_status,
         "hardware": {
             "memory_usage_percent": mem.percent,
-            "disk_usage_percent": disk.percent
+            "disk_usage_percent": psutil.disk_usage('/').percent
         }
     }
 

@@ -36,7 +36,7 @@ export default function GlobalSearchPage() {
     queryKey: ["semanticSearch", submittedQuery],
     queryFn: async () => {
       if (!submittedQuery) return null;
-      const res = await chatApi.send(submittedQuery);
+      const res = await chatApi.search(submittedQuery);
       return res.data.data;
     },
     enabled: !!submittedQuery,

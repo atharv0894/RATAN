@@ -29,6 +29,11 @@ You must output your response in clear, well-formatted markdown. Do not wrap you
         if chat_history:
             history_text = "Previous Conversation:\n" + "\n".join([f"{msg['role']}: {msg['content']}" for msg in chat_history[-4:]]) + "\n\n"
             
+        # Hard cap context to ~6000 tokens (approx 24,000 chars) to prevent context window overflow
+        max_context_chars = 24000
+        if len(context_str) > max_context_chars:
+            context_str = context_str[:max_context_chars] + "\n\n[Context truncated due to length limits]"
+            
         prompt = f"""Use the following pieces of retrieved context to answer the question.
 
 {history_text}Context Evidence:

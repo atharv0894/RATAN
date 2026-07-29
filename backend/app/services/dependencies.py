@@ -10,6 +10,7 @@ from fastapi.security import OAuth2PasswordBearer
 from app.services.auth_service import AuthService
 from app.exceptions import AuthenticationError, AuthorizationError
 from app.database.sqlite import get_db_connection
+from app.core.logger import user_id_var
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/login")
 
@@ -21,6 +22,9 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
     user_id = payload.get("sub")
     if not user_id:
         raise AuthenticationError("Token missing user ID.")
+        
+    # Set context var for structured JSON logging
+    user_id_var.set(user_id)
         
     return {
         "id": user_id,

@@ -14,10 +14,9 @@ class SearchStrategy(ABC):
             return 0.0
         return np.dot(a, b) / (norm_a * norm_b)
         
-    def _deduplicate(self, documents, metadatas, distances, embeddings):
+    def _deduplicate(self, documents, metadatas, distances, embeddings=None):
         seen_chunks = set()
         unique_docs = []
-        unique_embeddings = []
         for i in range(len(documents)):
             chunk_id = metadatas[i].get('chunk_id')
             if not chunk_id:
@@ -44,7 +43,7 @@ class SearchStrategy(ABC):
                     "rerank_score": 0.0, # Will be set by Reranker
                     "metadata": meta,
                     "text": documents[i],
-                    "embedding": embeddings[i]
+                    "embedding": embeddings[i] if embeddings else None
                 })
         return unique_docs
 
@@ -53,13 +52,13 @@ class SimilaritySearch(SearchStrategy):
         results = vector_store.query(
             query_embeddings=[query_embedding],
             n_results=fetch_k,
-            include=['documents', 'metadatas', 'distances', 'embeddings'],
+            include=['documents', 'metadatas', 'distances'],
             where=where
         )
         if not results or not results.get('documents') or len(results['documents'][0]) == 0:
             return []
             
-        docs = self._deduplicate(results['documents'][0], results['metadatas'][0], results['distances'][0], results['embeddings'][0])
+        docs = self._deduplicate(results['documents'][0], results['metadatas'][0], results['distances'][0], None)
         # Sort by distance (Qdrant uses Cosine, so higher distance usually means lower similarity depending on normalization, but we'll assume sorting logic exists in Qdrant)
         # We will just return top_k
         return docs[:top_k]

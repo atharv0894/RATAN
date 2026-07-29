@@ -22,7 +22,9 @@ class AuthService:
         
     @classmethod
     def get_password_hash(cls, password: str) -> str:
-        salt = bcrypt.gensalt()
+        # Standard default is 12 rounds (~300ms on Render Free CPU). 
+        # Reducing to 10 rounds (~60ms) to hit the <150ms auth latency target.
+        salt = bcrypt.gensalt(rounds=10)
         return bcrypt.hashpw(password.encode('utf-8'), salt).decode('utf-8')
 
     @classmethod

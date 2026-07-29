@@ -116,4 +116,4 @@ huggingface/
 *.sqlite
 *.sqlite3
 *.sqlite3-shm
-*.sqlite3-wal
+*.sqlite3-wal*.db

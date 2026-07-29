@@ -19,6 +19,15 @@ class QdrantStore:
         self._ensure_collection()
 
     def _ensure_collection(self):
+        try:
+            if not self.client.collection_exists(self.collection_name):
+                self.client.create_collection(
+                    collection_name=self.collection_name,
+                    vectors_config=VectorParams(size=384, distance=Distance.COSINE)
+                )
+        except Exception as e:
+            import logging
+            logging.warning(f"Collection check/creation failed: {e}")
             
         # Create indexes for filtering (Required by Qdrant Cloud strict mode)
         # It's safe to call these even if the collection already exists
